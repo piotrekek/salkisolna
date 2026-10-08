@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <!-- Specjalne ustawienia dla urządzeń mobilnych (iPhone/Android) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <title>System Sal - POSM Poznań</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Proxima Nova', -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+            background-color: #000000;
+            /* Kolorowe, nowoczesne tło (rozmyte gradienty) */
+            background-image: 
+                radial-gradient(circle at 10% 0%, rgba(56, 189, 248, 0.15), transparent 30%),
+                radial-gradient(circle at 90% 100%, rgba(99, 102, 241, 0.15), transparent 40%);
+            background-attachment: fixed;
+            color: #f5f5f7;
+            -webkit-font-smoothing: antialiased;
+            /* Ochrona przed dolnym paskiem w iPhone */
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .glass-panel {
+            background: rgba(28, 28, 30, 0.65);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .zaktualizowano {
+            animation: apple-pulse 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        
+        @keyframes apple-pulse {
+            0% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.1); filter: brightness(1.3); }
+            100% { transform: scale(1); filter: brightness(1); }
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Optyczna poprawka dla kafelków */
+        .sala-kafelek {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            /* Szybsza reakcja na dotyk */
+            touch-action: manipulation; 
+        }
+        .ukryta {
+            display: none !important;
+        }
+
+        .filtr-btn {
+            touch-action: manipulation;
+        }
+    </style>
+</head>
+<body class="min-h-screen relative overflow-x-hidden flex flex-col pt-[env(safe-area-inset-top)]">
+
+    <!-- GÓRNY PASEK -->
+    <nav class="glass-panel mx-3 sm:mx-4 mt-4 px-5 py-3 sticky top-4 z-50 flex justify-between items-center max-w-7xl xl:mx-auto">
+        <div class="flex items-center gap-4">
+            <div class="relative w-11 h-11">
+                <!-- Kolorowy, niebiesko-fioletowy gradient pod logo -->
+                <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                    <span class="font-bold text-xl text-white">P</span>
+                </div>
+                <img src="logo.png" alt="Logo" class="absolute inset-0 w-11 h-11 object-contain rounded-xl bg-white/5 p-1 z-10" onerror="this.style.display='none'">
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-white leading-tight">System Sal</h1>
+                <p class="text-xs text-blue-400 font-semibold tracking-wider uppercase">POSM POZNAŃ</p>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto p-3 sm:p-4 mt-2 flex-grow w-full flex flex-col">
+        <div class="glass-panel p-5 sm:p-8 flex-grow flex flex-col relative overflow-hidden">
+            
+            <!-- NAGŁÓWEK I FILTRY -->
+            <div class="mb-6 z-10">
+                <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-white mb-4">Status Kampusu</h2>
+                
+                <!-- Pasek filtrów zoptymalizowany pod przesuwanie palcem -->
+                <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2 -mx-2 px-2" style="-webkit-overflow-scrolling: touch;">
+                    <!-- Aktywny filtr ma niebieski gradient -->
+                    <button onclick="ustawFiltr('wszystkie')" id="btn-wszystkie" class="filtr-btn bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/20 px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all transform scale-105">Wszystkie</button>
+                    
+                    <button onclick="ustawFiltr('wolne')" id="btn-wolne" class="filtr-btn bg-white/10 text-gray-300 hover:bg-white/20 border border-white/5 px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all">Tylko Wolne</button>
+                    
+                    <button onclick="ustawFiltr('fortepian')" id="btn-fortepian" class="filtr-btn bg-white/10 text-gray-300 hover:bg-white/20 border border-white/5 px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all">🎹 Z fortepianem</button>
+                </div>
+            </div>
+            
+            <!-- KAFELKI -->
+            <div id="rooms-grid" class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-3 z-10">
+                <!-- Generowane przez JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- STOPKA -->
+    <footer class="text-center py-8 mt-auto pb-[calc(2rem+env(safe-area-inset-bottom))]">
+        <p class="text-xs sm:text-sm text-gray-500 font-bold tracking-widest uppercase">Zrealizowane przez SU 2026/2027</p>
+    </footer>
+
+    <script>
+        // --- 1. KONFIGURACJA BAZY DANYCH ---
+        // !!! WKLEJ TUTAJ SWÓJ LINK DO BAZY DANYCH !!!
+        const firebaseConfig = {
+            databaseURL: "https://TUTAJ_WKLEJ_SWOJ_LINK_DO_BAZY.firebasedatabase.app/" 
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Podaj numery sal, w których znajduje się fortepian
+        const saleFortepian = [1, 2, 5, 12, 18, 25, 40]; 
+
+        let aktualneStatusy = {};
+        let aktywnyFiltr = 'wszystkie';
+
+        // --- 2. GENEROWANIE KAFELKÓW ---
+        const grid = document.getElementById('rooms-grid');
+        
+        // Styl dla wolnych: Neonowa zieleń
+        const klasaWolna = "sala-kafelek flex items-center justify-center h-14 sm:h-16 rounded-2xl bg-[#34c759]/15 text-[#34c759] border border-[#34c759]/30 font-bold text-lg sm:text-xl shadow-[0_0_15px_rgba(52,199,89,0.05)] cursor-default";
+        // Styl dla zajętych: Zgaszona, lekko przezroczysta czerwień (nie razi w oczy)
+        const klasaZajeta = "sala-kafelek flex items-center justify-center h-14 sm:h-16 rounded-2xl bg-[#ff3b30]/10 text-[#ff3b30]/70 border border-[#ff3b30]/15 font-bold text-lg sm:text-xl opacity-60 cursor-default";
+        
+        for(let i=1; i<=100; i++) {
+            const maFortepian = saleFortepian.includes(i) ? "true" : "false";
+
+            grid.innerHTML += `<div id="sala-${i}" 
+                data-numer="${i}" 
+                data-fortepian="${maFortepian}" 
+                class="${klasaWolna}">${i}</div>`;
+        }
+
+        // --- 3. LOGIKA FILTROWANIA ---
+        window.ustawFiltr = function(filtr) {
+            aktywnyFiltr = filtr;
+            
+            document.querySelectorAll('.filtr-btn').forEach(btn => {
+                btn.className = "filtr-btn bg-white/10 text-gray-300 hover:bg-white/20 border border-white/5 px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all";
+            });
+            
+            document.getElementById(`btn-${filtr}`).className = "filtr-btn bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/20 px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all transform scale-105";
+
+            for(let i=1; i<=100; i++) {
+                const kafelek = document.getElementById(`sala-${i}`);
+                let pokaz = false;
+
+                if (filtr === 'wszystkie') pokaz = true;
+                if (filtr === 'wolne' && aktualneStatusy[i] !== 'ZAJĘTA') pokaz = true;
+                if (filtr === 'fortepian' && kafelek.dataset.fortepian === 'true') pokaz = true;
+
+                if (pokaz) {
+                    kafelek.classList.remove('ukryta');
+                } else {
+                    kafelek.classList.add('ukryta');
+                }
+            }
+        }
+
+        // --- 4. NASŁUCHIWANIE SAL NA ŻYWO ---
+        db.ref('sale_aktualne').on('value', (snapshot) => {
+            const dane = snapshot.val();
+            if(dane) {
+                for (const [numerSali, status] of Object.entries(dane)) {
+                    aktualneStatusy[numerSali] = status; 
+                    
+                    const kafelek = document.getElementById(`sala-${numerSali}`);
+                    if(kafelek) {
+                        const isZajeta = (status === 'ZAJĘTA');
+                        
+                        if (isZajeta) {
+                            kafelek.className = kafelek.className.replace(klasaWolna, klasaZajeta);
+                        } else {
+                            if (!kafelek.className.includes(klasaWolna)) {
+                                kafelek.className = kafelek.className.replace(klasaZajeta, klasaWolna);
+                                if (!kafelek.className.includes(klasaWolna)) kafelek.className = klasaWolna + (kafelek.classList.contains('ukryta') ? ' ukryta' : '');
+                            }
+                        }
+                        
+                        kafelek.classList.add('zaktualizowano');
+                        setTimeout(() => kafelek.classList.remove('zaktualizowano'), 600);
+                    }
+                }
+                ustawFiltr(aktywnyFiltr);
+            }
+        });
+
+    </script>
+</body>
+</html>
