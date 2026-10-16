@@ -3,124 +3,223 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#000000">
-    <title>Elektroniczna Portiernia - POSM</title>
+    <meta name="theme-color" content="#081018">
+    <title>Samorząd Solnej — POSM</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #000000; background-image: radial-gradient(circle at 10% 0%, rgba(56, 189, 248, 0.1), transparent 30%), radial-gradient(circle at 90% 100%, rgba(99, 102, 241, 0.1), transparent 40%); background-attachment: fixed; color: #f5f5f7; }
-        .glass-panel { background: rgba(28, 28, 30, 0.65); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); }
-        .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .sala-kafelek { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); touch-action: manipulation; }
-        .ukryta { display: none !important; }
-        .zaktualizowano { animation: apple-pulse 0.6s cubic-bezier(0.25, 1, 0.5, 1); }
-        @keyframes apple-pulse { 0% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.1); filter: brightness(1.3); } 100% { transform: scale(1); filter: brightness(1); } }
-    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="min-h-screen relative overflow-x-hidden flex flex-col pt-[env(safe-area-inset-top)]">
 
-    <nav class="glass-panel mx-3 sm:mx-4 mt-4 px-5 py-3 sticky top-4 z-50 flex justify-between items-center max-w-7xl xl:mx-auto">
-        <div class="flex items-center gap-4">
-            <div class="relative w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden bg-white/5 border border-white/10">
-                <img src="logo.png" alt="Logo" class="w-full h-full object-cover z-10" onerror="this.style.display='none'">
+    <!-- EKRAN LOGOWANIA -->
+    <div id="ekran-logowania" class="min-h-screen flex items-center justify-center p-4 animate-fade-in">
+        <div class="glass-panel p-6 sm:p-9 w-full max-w-md relative overflow-hidden">
+            <div class="flex items-center gap-3.5 mb-7 relative z-10">
+                <div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+                    <img src="logo.png" alt="Logo" class="w-9 h-9 object-contain" onerror="this.style.display='none'">
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">samorzadsolnej.pl</h1>
+                    <span class="emblem emblem-cyan mt-1">Portal Ucznia POSM</span>
+                </div>
             </div>
-            <div>
-                <h1 class="text-xl font-bold tracking-tight text-white leading-tight">Elektroniczna Portiernia</h1>
-                <p class="text-xs text-blue-400 font-semibold tracking-wider uppercase">POSM IIst.</p>
-            </div>
-        </div>
-    </nav>
 
-    <div class="max-w-7xl mx-auto p-3 sm:p-4 mt-2 flex-grow w-full flex flex-col gap-6">
+            <div class="flex flex-col gap-4 mb-6 relative z-10">
+                <div>
+                    <label class="text-[11px] font-bold text-slate-300 uppercase tracking-wider ml-1">Login lub kod autoryzacji</label>
+                    <input type="text" id="login-input" placeholder="np. p.nowik lub 0A7F9K2M" autocapitalize="none" autocorrect="off" class="input-modern mt-1.5 w-full rounded-xl px-4 py-3.5">
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-slate-300 uppercase tracking-wider ml-1">Hasło</label>
+                    <input type="password" id="haslo-input" placeholder="•••••••••" class="input-modern mt-1.5 w-full rounded-xl px-4 py-3.5">
+                </div>
+            </div>
+
+            <p id="blad-logowania" class="hidden text-rose-400 text-xs font-semibold mb-4 text-center"></p>
+            <button onclick="zalogujUcznia()" class="btn-primary-gradient w-full py-3.5 rounded-xl font-bold text-sm">Zaloguj się</button>
+        </div>
+    </div>
+
+    <!-- EKRAN ZMIANY HASŁA STARTOWEGO -->
+    <div id="ekran-zmiany-hasla" class="hidden min-h-screen items-center justify-center p-4 animate-fade-in">
+        <div class="glass-panel p-6 sm:p-9 w-full max-w-md">
+            <span class="emblem emblem-amber mb-3">Pierwsze logowanie</span>
+            <h2 class="text-xl font-extrabold text-white mb-6">Ustaw prywatne hasło</h2>
+
+            <div class="flex flex-col gap-4 mb-6">
+                <div>
+                    <label class="text-[11px] font-bold text-slate-300 uppercase tracking-wider ml-1">Nowe hasło</label>
+                    <input type="password" id="nowe-haslo-1" class="input-modern mt-1.5 w-full rounded-xl px-4 py-3.5">
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-slate-300 uppercase tracking-wider ml-1">Powtórz hasło</label>
+                    <input type="password" id="nowe-haslo-2" class="input-modern mt-1.5 w-full rounded-xl px-4 py-3.5">
+                </div>
+            </div>
+
+            <p id="blad-zmiany-hasla" class="hidden text-rose-400 text-xs font-semibold mb-4 text-center"></p>
+            <button onclick="zapiszNoweHaslo()" class="btn-primary-gradient w-full py-3.5 rounded-xl font-bold text-sm">Zapisz hasło</button>
+        </div>
+    </div>
+
+    <!-- GŁÓWNY EKRAN -->
+    <div id="ekran-glowny" class="hidden flex-col min-h-screen pb-12">
         
-        <!-- Pasek Narzędzi: Filtry -->
-        <div class="glass-panel p-4 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div class="w-full">
-                <h2 class="text-lg font-bold tracking-tight text-white mb-3">Filtruj tablicę</h2>
-                <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1 w-full">
-                    <button onclick="ustawFiltr('wszystkie')" id="btn-wszystkie" class="filtr-btn bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all">Wszystkie</button>
-                    <button onclick="ustawFiltr('wolne')" id="btn-wolne" class="filtr-btn bg-white/10 text-gray-300 border border-white/5 px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all">Tylko Wolne</button>
-                    <button onclick="ustawFiltr('fortepian')" id="btn-fortepian" class="filtr-btn bg-white/10 text-gray-300 border border-white/5 px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all">🎹 Z fortepianem</button>
+        <nav class="glass-panel mx-2.5 sm:mx-4 mt-3 sm:mt-4 px-3.5 sm:px-6 py-3 sticky top-3 z-40 flex flex-col md:flex-row justify-between items-center gap-3 max-w-7xl xl:mx-auto w-auto">
+            <div class="flex items-center justify-between w-full md:w-auto">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+                        <img src="logo.png" alt="Logo" class="w-7 h-7 object-contain" onerror="this.style.display='none'">
+                    </div>
+                    <div>
+                        <h1 class="text-sm sm:text-lg font-extrabold tracking-tight text-white leading-tight">samorzadsolnej.pl</h1>
+                        <p id="nav-uczen-info" class="text-[11px] text-teal-300 font-semibold truncate max-w-[165px] sm:max-w-xs">-</p>
+                    </div>
+                </div>
+
+                <div class="flex md:hidden items-center gap-1.5">
+                    <button onclick="otworzModalQR()" class="btn-primary-gradient px-3 py-2 rounded-xl text-xs font-bold">Kod QR</button>
+                    <button onclick="wylogujUcznia()" class="btn-secondary-glass px-3 py-2 rounded-xl text-xs font-semibold">Wyloguj</button>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full md:w-auto justify-center bg-slate-950/70 p-1.5 rounded-2xl border border-white/10">
+                <button onclick="przelaczZakladkeUcznia('salki')" id="tab-uczen-salki" class="nav-tab flex-1 md:flex-initial text-center active">Salki</button>
+                <button onclick="przelaczZakladkeUcznia('glosowania')" id="tab-uczen-glosowania" class="nav-tab flex-1 md:flex-initial flex items-center justify-center gap-1.5">
+                    <span>Głosowania</span>
+                    <span id="badge-ankiety-count" class="hidden bg-teal-400 text-slate-950 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">0</span>
+                </button>
+                <button onclick="przelaczZakladkeUcznia('propozycje')" id="tab-uczen-propozycje" class="nav-tab flex-1 md:flex-initial text-center">Propozycje</button>
+            </div>
+
+            <div class="hidden md:flex items-center gap-2.5">
+                <button onclick="otworzModalQR()" class="btn-primary-gradient px-4 py-2.5 rounded-xl text-xs font-bold">Mój Kod QR</button>
+                <button onclick="wylogujUcznia()" class="btn-secondary-glass px-4 py-2.5 rounded-xl text-xs font-semibold">Wyloguj</button>
+            </div>
+        </nav>
+
+        <!-- WIDOK 1: SALKI -->
+        <div id="widok-salki" class="max-w-7xl mx-auto p-2.5 sm:p-4 mt-1 flex-grow w-full flex flex-col gap-4 sm:gap-5 animate-fade-in">
+            <div class="glass-panel p-3.5 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3.5">
+                <div class="flex gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto pb-0.5">
+                    <button onclick="ustawFiltr('wszystkie')" id="btn-wszystkie" class="filtr-btn active">Wszystkie</button>
+                    <button onclick="ustawFiltr('wolne')" id="btn-wolne" class="filtr-btn">Tylko wolne</button>
+                    <button onclick="ustawFiltr('fortepian')" id="btn-fortepian" class="filtr-btn">Z fortepianem</button>
+                </div>
+                <div class="flex flex-wrap items-center gap-2.5 text-xs font-semibold">
+                    <span class="emblem emblem-emerald"><span class="status-dot dot-emerald"></span>Wolna</span>
+                    <span class="emblem emblem-rose"><span class="status-dot dot-rose"></span>Zajęta</span>
+                    <span class="emblem emblem-purple"><span class="status-dot dot-purple"></span>Blokada</span>
+                </div>
+            </div>
+
+            <div id="sekcja-ulubione" class="hidden glass-panel p-4 sm:p-6 border-amber-400/30">
+                <div class="flex items-center gap-2 mb-3.5">
+                    <span class="emblem emblem-gold">Ulubione sale</span>
+                </div>
+                <div id="grid-ulubione" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-3"></div>
+            </div>
+
+            <div class="flex flex-col gap-4 sm:gap-5">
+                <div class="glass-panel p-4 sm:p-6">
+                    <div class="flex items-center gap-2 mb-3.5">
+                        <span class="emblem emblem-rose">II stopień</span>
+                    </div>
+                    <div id="grid-IIst" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-3"></div>
+                </div>
+                <div class="glass-panel p-4 sm:p-6">
+                    <div class="flex items-center gap-2 mb-3.5">
+                        <span class="emblem emblem-emerald">I stopień</span>
+                    </div>
+                    <div id="grid-Ist" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-3"></div>
+                </div>
+                <div class="glass-panel p-4 sm:p-6">
+                    <div class="flex items-center gap-2 mb-3.5">
+                        <span class="emblem emblem-cyan">Sale jazzowe</span>
+                    </div>
+                    <div id="grid-jazz" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-3"></div>
+                </div>
+                <div class="glass-panel p-4 sm:p-6">
+                    <div class="flex items-center gap-2 mb-3.5">
+                        <span class="emblem emblem-amber">Inne</span>
+                    </div>
+                    <div id="grid-inne" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3"></div>
                 </div>
             </div>
         </div>
 
-        <div class="flex flex-col gap-6">
-            <div class="glass-panel p-5 sm:p-6"><div class="flex items-center gap-2 mb-4"><span class="w-3 h-3 rounded-full bg-rose-500"></span><h3 class="text-base font-bold text-rose-400 uppercase tracking-wider">II stopień</h3></div><div id="grid-IIst" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-3"></div></div>
-            <div class="glass-panel p-5 sm:p-6"><div class="flex items-center gap-2 mb-4"><span class="w-3 h-3 rounded-full bg-emerald-500"></span><h3 class="text-base font-bold text-emerald-400 uppercase tracking-wider">I stopień</h3></div><div id="grid-Ist" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-3"></div></div>
-            <div class="glass-panel p-5 sm:p-6"><div class="flex items-center gap-2 mb-4"><span class="w-3 h-3 rounded-full bg-gray-200"></span><h3 class="text-base font-bold text-gray-200 uppercase tracking-wider">Sale Jazzowe</h3></div><div id="grid-jazz" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-3"></div></div>
-            <div class="glass-panel p-5 sm:p-6"><div class="flex items-center gap-2 mb-4"><span class="w-3 h-3 rounded-full bg-amber-400"></span><h3 class="text-base font-bold text-amber-300 uppercase tracking-wider">Inne</h3></div><div id="grid-inne" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3"></div></div>
+        <!-- WIDOK 2: GŁOSOWANIA -->
+        <div id="widok-glosowania" class="hidden max-w-4xl mx-auto p-2.5 sm:p-4 mt-1 flex-grow w-full flex-col gap-4 animate-fade-in">
+            <div id="lista-ankiet-uczen" class="flex flex-col gap-4"></div>
+        </div>
+
+        <!-- WIDOK 3: PROPOZYCJE -->
+        <div id="widok-propozycje" class="hidden max-w-4xl mx-auto p-2.5 sm:p-4 mt-1 flex-grow w-full flex-col gap-4 sm:gap-5 animate-fade-in">
+            <div class="glass-panel p-5 sm:p-7 relative overflow-hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <span class="emblem emblem-cyan">Nowa propozycja</span>
+                </div>
+                <div class="flex flex-col gap-3.5">
+                    <input type="text" id="prop-tytul" placeholder="Tytuł propozycji" class="input-modern w-full rounded-xl px-4 py-3">
+                    <textarea id="prop-opis" rows="3" placeholder="Treść propozycji" class="input-modern w-full rounded-xl p-4 resize-none"></textarea>
+                    
+                    <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 pt-2">
+                        <label class="toggle-switch-wrap">
+                            <input type="checkbox" id="prop-anonim" class="sr-only">
+                            <span class="toggle-slider"></span>
+                            <span class="text-xs sm:text-sm font-semibold text-slate-200">Opublikuj anonimowo</span>
+                        </label>
+                        <button onclick="dodajPropozycje()" class="btn-primary-gradient w-full sm:w-auto px-7 py-3.5 rounded-xl font-bold text-xs sm:text-sm">Opublikuj</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="lista-propozycji-uczen" class="flex flex-col gap-4"></div>
+        </div>
+
+    </div>
+
+    <!-- MODAL 1: KOD QR -->
+    <div id="modal-qr" class="fixed inset-0 modal-overlay hidden items-center justify-center z-50 p-4">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-xs text-center relative animate-scale-in">
+            <button onclick="zamknijModalQR()" class="absolute top-3.5 right-4 text-slate-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            <span class="emblem emblem-cyan mb-2">Karta Autoryzacji</span>
+            <h3 id="qr-imie" class="text-lg font-extrabold text-white mt-1">-</h3>
+            <p id="qr-szczegoly" class="text-xs text-slate-300 mb-5">-</p>
+
+            <div class="bg-white p-4 rounded-2xl inline-block mx-auto mb-4 shadow-xl">
+                <div id="qrcode-box"></div>
+            </div>
+
+            <div class="bg-slate-950/80 border border-white/10 rounded-xl py-2.5 px-4">
+                <span id="qr-uid-tekst" class="text-xl font-mono font-extrabold tracking-widest text-teal-300">--------</span>
+            </div>
         </div>
     </div>
 
-    <script>
-        const firebaseConfig = { databaseURL: "https://posm-sale-default-rtdb.europe-west1.firebasedatabase.app/" };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+    <!-- MODAL 2: OPCJE SALI -->
+    <div id="modal-sala-uczen" class="fixed inset-0 modal-overlay hidden items-center justify-center z-50 p-4">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-md relative animate-scale-in max-h-[90vh] overflow-y-auto">
+            <button onclick="zamknijModalSali()" class="absolute top-3.5 right-4 text-slate-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            <div class="flex items-center gap-3 mb-4">
+                <h3 class="text-xl font-extrabold text-white">Sala <span id="akcja-sala-nr" class="text-teal-300"></span></h3>
+                <div id="akcja-sala-status"></div>
+            </div>
 
-        const saleIIst = ['101','102','103','104','105','106','107','108','109','110','111','112','113','114','115','116','117','118','119','120','122','128','129','130','131','132','140','141','142','143','144','145','146','147'];
-        const saleIst = ['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','22','40','41','42','43','44','45','46','47','48','49','52','57B'];
-        const saleJazz = ['01','02','03','04','06','07','08'];
-        const saleInne = ['Koncertowa','Kameralna','Lustrzana','Kryształowa'];
-        const wszystkieSale = [...saleIIst, ...saleIst, ...saleJazz, ...saleInne];
-        const saleFortepian = ['1','2','5','12','18','25','40','Koncertowa']; 
+            <button id="btn-toggle-ulubiona" onclick="przelaczUlubionaSale()" class="w-full mb-5 py-3.5 rounded-xl font-bold text-xs sm:text-sm border transition-all"></button>
 
-        let aktualneStatusy = {};
-        let aktywnyFiltr = 'wszystkie';
+            <div class="border-t border-white/10 pt-4">
+                <label class="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2">Zgłoś usterkę</label>
+                <textarea id="opis-usterki-input" rows="2" placeholder="Opis usterki..." class="input-modern w-full rounded-xl p-3.5 resize-none mb-3"></textarea>
+                <button onclick="wyslijZgloszenieUsterki()" class="btn-secondary-glass w-full py-3.5 rounded-xl font-bold text-xs sm:text-sm">Wyślij zgłoszenie</button>
+                <p id="potwierdzenie-usterki" class="hidden text-emerald-400 text-xs font-semibold text-center mt-2.5">Zgłoszenie zostało wysłane.</p>
+            </div>
+        </div>
+    </div>
 
-        function generujTablice() {
-            wypelnijGrupę('grid-IIst', saleIIst, 'IIst'); wypelnijGrupę('grid-Ist', saleIst, 'Ist');
-            wypelnijGrupę('grid-jazz', saleJazz, 'jazz'); wypelnijGrupę('grid-inne', saleInne, 'inne');
-        }
-
-        function wypelnijGrupę(id, lista, kat) {
-            const kon = document.getElementById(id);
-            lista.forEach(nr => {
-                const maF = saleFortepian.includes(nr) ? "true" : "false";
-                kon.innerHTML += `<div id="sala-${nr}" data-kategoria="${kat}" data-fortepian="${maF}" class="sala-kafelek flex items-center justify-center p-3 h-14 sm:h-16 rounded-2xl bg-[#34c759]/15 text-[#34c759] border border-[#34c759]/30 font-bold text-base sm:text-lg cursor-default">${nr}</div>`;
-            });
-        }
-        generujTablice();
-
-        window.ustawFiltr = function(filtr) {
-            aktywnyFiltr = filtr;
-            document.querySelectorAll('.filtr-btn').forEach(btn => btn.className = "filtr-btn bg-white/10 text-gray-300 border border-white/5 px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all");
-            document.getElementById(`btn-${filtr}`).className = "filtr-btn bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all";
-
-            wszystkieSale.forEach(nr => {
-                const kaf = document.getElementById(`sala-${nr}`); if (!kaf) return;
-                let pokaz = false;
-                if (filtr === 'wszystkie') pokaz = true;
-                else if (filtr === 'wolne' && aktualneStatusy[nr] !== 'ZAJĘTA') pokaz = true;
-                else if (filtr === 'fortepian' && kaf.dataset.fortepian === "true") pokaz = true;
-                if (pokaz) kaf.classList.remove('ukryta'); else kaf.classList.add('ukryta');
-            });
-        }
-
-        db.ref('sale_aktualne').on('value', (snap) => {
-            if(snap.val()) {
-                const czyPierwsze = Object.keys(aktualneStatusy).length === 0;
-                for (const [nr, status] of Object.entries(snap.val())) {
-                    const czyZmiana = aktualneStatusy[nr] !== undefined && aktualneStatusy[nr] !== status;
-                    aktualneStatusy[nr] = status; 
-                    const kaf = document.getElementById(`sala-${nr}`);
-                    if(kaf) {
-                        const czyU = kaf.classList.contains('ukryta');
-                        kaf.className = status === 'ZAJĘTA' ? "sala-kafelek flex items-center justify-center p-3 h-14 sm:h-16 rounded-2xl bg-[#ff3b30]/10 text-[#ff3b30]/70 border border-[#ff3b30]/15 font-bold text-base sm:text-lg opacity-60 cursor-default" : "sala-kafelek flex items-center justify-center p-3 h-14 sm:h-16 rounded-2xl bg-[#34c759]/15 text-[#34c759] border border-[#34c759]/30 font-bold text-base sm:text-lg cursor-default";
-                        if (czyU) kaf.classList.add('ukryta');
-                        if (czyZmiana && !czyPierwsze) {
-                            kaf.classList.remove('zaktualizowano'); void kaf.offsetWidth; kaf.classList.add('zaktualizowano');
-                            setTimeout(() => kaf.classList.remove('zaktualizowano'), 600);
-                        }
-                    }
-                }
-                ustawFiltr(aktywnyFiltr);
-            }
-        });
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
