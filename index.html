@@ -2,222 +2,1320 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#081018">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="theme-color" content="#090d16">
     <title>Samorząd Solnej — POSM</title>
     
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="logo-192.png">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js'); });
+        }
+    </script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700;800&display=swap" rel="stylesheet">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    
     <link rel="stylesheet" href="style.css">
+    <style>
+        input.input-classic, textarea.input-classic, select.input-classic { background-color: #0f0f14 !important; color: #ffffff !important; caret-color: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.16) !important; color-scheme: dark; }
+        input.input-classic:-webkit-autofill, input.input-classic:-webkit-autofill:hover, input.input-classic:-webkit-autofill:focus, input.input-classic:-webkit-autofill:active { -webkit-box-shadow: 0 0 0 1000px #0f0f14 inset !important; -webkit-text-fill-color: #ffffff !important; caret-color: #ffffff !important; transition: background-color 5000s ease-in-out 0s; }
+        
+        .text-glow { text-shadow: 0 0 16px rgba(255, 255, 255, 0.28), 0 4px 20px rgba(99, 102, 241, 0.2); }
+        
+        @keyframes fadeInUpOriginal { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeInUpOriginal 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        /* ESTETYCZNE ANIMACJE PROFILU */
+        .profile-hero-card {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(135deg, rgba(24, 24, 30, 0.85) 0%, rgba(16, 20, 34, 0.82) 100%);
+            transition: border-color 0.35s ease, box-shadow 0.35s ease;
+        }
+        .profile-hero-card:hover {
+            border-color: rgba(255, 255, 255, 0.14);
+        }
+        .profile-ambient-orb {
+            position: absolute;
+            width: 240px;
+            height: 240px;
+            border-radius: 9999px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
+            top: -90px;
+            right: -70px;
+            pointer-events: none;
+            animation: orbFloat 7s ease-in-out infinite alternate;
+        }
+        @keyframes orbFloat {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(-18px, 14px) scale(1.08); }
+        }
+        .profile-stat-box {
+            background: rgba(12, 14, 22, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, background-color 0.25s ease;
+        }
+        .profile-stat-box:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.14);
+            background: rgba(18, 22, 34, 0.8);
+        }
+        .stagger-1 { opacity: 0; animation: fadeInUpOriginal 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.05s forwards; }
+        .stagger-2 { opacity: 0; animation: fadeInUpOriginal 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.14s forwards; }
+        .stagger-3 { opacity: 0; animation: fadeInUpOriginal 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.23s forwards; }
+
+        /* ODZNAKI PROFILOWE */
+        .badge-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 11px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #f4f4f5;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .badge-chip:hover {
+            transform: translateY(-2px);
+            background: rgba(99, 102, 241, 0.15);
+            border-color: rgba(99, 102, 241, 0.4);
+        }
+        .badge-icon-btn {
+            height: 42px;
+            border-radius: 12px;
+            background: rgba(15, 15, 20, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            transition: all 0.15s ease;
+        }
+        .badge-icon-btn:hover {
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: scale(1.05);
+        }
+        .badge-icon-btn.selected {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3);
+        }
+
+        @keyframes slideOutLeftAnim { from { transform: translateX(0); opacity: 1; } to { transform: translateX(-40px); opacity: 0; } }
+        @keyframes slideOutRightAnim { from { transform: translateX(0); opacity: 1; } to { transform: translateX(40px); opacity: 0; } }
+        @keyframes slideInRightAnim { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideInLeftAnim { from { transform: translateX(-40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        .anim-slide-out-left { animation: slideOutLeftAnim 0.3s forwards cubic-bezier(0.4, 0, 0.2, 1); }
+        .anim-slide-out-right { animation: slideOutRightAnim 0.3s forwards cubic-bezier(0.4, 0, 0.2, 1); }
+        .anim-slide-in-right { animation: slideInRightAnim 0.3s forwards cubic-bezier(0.4, 0, 0.2, 1); }
+        .anim-slide-in-left { animation: slideInLeftAnim 0.3s forwards cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        /* ==========================================
+           PŁONĄCY PŁOMYK SVG (BEZ KOŁYSANIA NA BOKI)
+           ========================================== */
+        #start-streak-wrapper {
+            --flame-outer: #f97316;
+            --flame-mid: #fbbf24;
+            --flame-core: #fef08a;
+            --streak-text-from: #fb923c;
+            --streak-text-to: #fde047;
+        }
+        #start-streak-wrapper.streak-tier-50, .streak-badge-tier-50 {
+            --flame-outer: #e11d48;
+            --flame-mid: #fb7185;
+            --flame-core: #ffe4e6;
+            --streak-text-from: #fb7185;
+            --streak-text-to: #fda4af;
+        }
+        #start-streak-wrapper.streak-tier-100, .streak-badge-tier-100 {
+            --flame-outer: #7e22ce;
+            --flame-mid: #c084fc;
+            --flame-core: #f3e8ff;
+            --streak-text-from: #c084fc;
+            --streak-text-to: #e9d5ff;
+        }
+        #start-streak-wrapper.streak-tier-200, .streak-badge-tier-200 {
+            --flame-outer: #0284c7;
+            --flame-mid: #38bdf8;
+            --flame-core: #e0f2fe;
+            --streak-text-from: #38bdf8;
+            --streak-text-to: #bae6fd;
+        }
+        #start-streak-wrapper.streak-tier-300, .streak-badge-tier-300 {
+            --flame-outer: #059669;
+            --flame-mid: #34d399;
+            --flame-core: #d1fae5;
+            --streak-text-from: #34d399;
+            --streak-text-to: #a7f3d0;
+        }
+        #start-streak-wrapper.streak-tier-350, .streak-badge-tier-350 {
+            --flame-outer: #ca8a04;
+            --flame-mid: #facc15;
+            --flame-core: #ffffff;
+            --streak-text-from: #fde047;
+            --streak-text-to: #ffffff;
+        }
+
+        .streak-icon-wrapper {
+            position: relative;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 40px;
+            height: 44px;
+            margin-right: 4px;
+            flex-shrink: 0;
+        }
+        .streak-icon-bg {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.18;
+            filter: grayscale(100%);
+        }
+        .streak-icon-fg {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            clip-path: inset(100% 0 0 0);
+        }
+        .streak-lost .streak-icon-fg {
+            filter: grayscale(100%) opacity(0.55);
+            clip-path: inset(0 0 0 0) !important;
+        }
+        .streak-lost #start-streak-count {
+            background-image: linear-gradient(to bottom right, #71717a, #52525b) !important;
+        }
+
+        .flame-svg {
+            width: 36px;
+            height: 40px;
+            overflow: visible;
+        }
+        .streak-active .flame-tongue-outer {
+            fill: var(--flame-outer);
+            transform-origin: 50% 92%;
+            animation: burnOuter 1.35s ease-in-out infinite alternate;
+            transition: fill 0.5s ease;
+        }
+        .streak-active .flame-tongue-mid {
+            fill: var(--flame-mid);
+            transform-origin: 50% 92%;
+            animation: burnMid 0.95s ease-in-out infinite alternate;
+            transition: fill 0.5s ease;
+        }
+        .streak-active .flame-tongue-core {
+            fill: var(--flame-core);
+            transform-origin: 50% 92%;
+            animation: burnCore 0.7s ease-in-out infinite alternate;
+            transition: fill 0.5s ease;
+        }
+        .streak-active .flame-spark-1 {
+            fill: var(--flame-mid);
+            animation: emberRise1 1.6s ease-out infinite;
+        }
+        .streak-active .flame-spark-2 {
+            fill: var(--flame-core);
+            animation: emberRise2 1.9s ease-out 0.6s infinite;
+        }
+        .streak-lost .flame-tongue-outer { fill: #52525b; }
+        .streak-lost .flame-tongue-mid { fill: #71717a; }
+        .streak-lost .flame-tongue-core { fill: #a1a1aa; }
+        .streak-lost .flame-spark-1, .streak-lost .flame-spark-2 { display: none; }
+
+        @keyframes burnOuter {
+            0% { transform: scaleX(1.02) scaleY(0.95); }
+            50% { transform: scaleX(0.97) scaleY(1.04) translateY(-1px); }
+            100% { transform: scaleX(1.01) scaleY(1.07) translateY(-1.5px); }
+        }
+        @keyframes burnMid {
+            0% { transform: scaleX(0.95) scaleY(1.05) translateY(-1px); }
+            100% { transform: scaleX(1.04) scaleY(0.93) translateY(0.5px); }
+        }
+        @keyframes burnCore {
+            0% { transform: scale(0.92); opacity: 0.85; }
+            100% { transform: scale(1.08, 1.14) translateY(-1px); opacity: 1; }
+        }
+        @keyframes emberRise1 {
+            0% { transform: translateY(10px) scale(0.9); opacity: 0; }
+            30% { opacity: 0.95; }
+            100% { transform: translateY(-9px) scale(0.2); opacity: 0; }
+        }
+        @keyframes emberRise2 {
+            0% { transform: translateY(8px) scale(0.8); opacity: 0; }
+            35% { opacity: 0.9; }
+            100% { transform: translateY(-11px) scale(0.15); opacity: 0; }
+        }
+
+        #start-streak-count {
+            background-image: linear-gradient(135deg, var(--streak-text-from), var(--streak-text-to));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            transition: all 0.5s ease;
+        }
+
+        .mini-flame-svg {
+            width: 15px;
+            height: 17px;
+            display: inline-block;
+            vertical-align: -2px;
+            overflow: visible;
+        }
+        .mini-flame-svg .mini-outer {
+            transform-origin: 50% 92%;
+            animation: burnOuter 1.3s ease-in-out infinite alternate;
+        }
+        .mini-flame-svg .mini-mid {
+            transform-origin: 50% 92%;
+            animation: burnMid 0.9s ease-in-out infinite alternate;
+        }
+
+        /* ==========================================
+           WARIANT B: KOŁO FORTUNY W TABELI WRAPPED
+           ========================================== */
+        .climb-board-box {
+            position: relative;
+            height: 276px;
+            overflow: hidden;
+            border-radius: 20px;
+            background: rgba(9, 13, 22, 0.72);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 12px;
+        }
+        .climb-bg-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transform: translateY(-120px);
+            will-change: transform;
+            animation: bgRowsWheelSlow 4.8s cubic-bezier(0.08, 0.82, 0.17, 1) 0.25s forwards;
+        }
+        @keyframes bgRowsWheelSlow {
+            0% { transform: translateY(-120px); }
+            45% { transform: translateY(-28px); }
+            75% { transform: translateY(-8px); }
+            100% { transform: translateY(0px); }
+        }
+        .climb-hero-row {
+            position: absolute;
+            left: 12px;
+            right: 12px;
+            height: 44px;
+            top: var(--target-top, 12px);
+            z-index: 20;
+            transform: translateY(var(--start-offset, 210px)) scale(0.95);
+            will-change: transform, box-shadow;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+            animation: heroWheelSuspense 4.8s cubic-bezier(0.08, 0.82, 0.17, 1) 0.25s forwards;
+        }
+        @keyframes heroWheelSuspense {
+            0% { transform: translateY(var(--start-offset, 210px)) scale(0.95); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35); }
+            40% { transform: translateY(calc(var(--start-offset, 210px) * 0.32)) scale(1.02); box-shadow: 0 20px 38px rgba(0, 0, 0, 0.65); }
+            72% { transform: translateY(calc(var(--start-offset, 210px) * 0.09)) scale(1.015); }
+            92% { transform: translateY(2px) scale(1.005); }
+            100% { transform: translateY(0px) scale(1); box-shadow: 0 10px 28px rgba(99, 102, 241, 0.38); }
+        }
+        @keyframes summaryRevealAfterStop {
+            0% { opacity: 0; transform: translateY(14px) scale(0.96); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .anim-reveal-after-wheel {
+            opacity: 0;
+            animation: summaryRevealAfterStop 0.65s cubic-bezier(0.16, 1, 0.3, 1) 4.95s forwards;
+        }
+
+        /* ==========================================
+           STYLE PLAKATÓW WRAPPED (SPACE GROTESK + OSTROŚĆ)
+           ========================================== */
+        .spotify-wrapped-card {
+            background-color: #f3f2ec;
+            color: #121212;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .font-space-grotesk {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        .spotify-gold-card {
+            background-color: #dca608;
+            color: #111111;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .spotify-aura-card {
+            background-color: #1dd1a1;
+            background-image: 
+                radial-gradient(circle at 12% 45%, #ff9f43 0%, rgba(255, 159, 67, 0.85) 26%, transparent 62%),
+                radial-gradient(circle at 88% 18%, #feca57 0%, transparent 45%),
+                linear-gradient(155deg, #2ed573 0%, #1dd1a1 55%, #10ac84 100%);
+            color: #111111;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* OPCJE ZACZEPKI SPÓJNE Z SYSTEMEM */
+        .poke-card-option {
+            background: rgba(15, 15, 20, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .poke-card-option:hover {
+            border-color: rgba(255, 255, 255, 0.18);
+            background: rgba(255, 255, 255, 0.04);
+        }
+        .poke-card-option.selected {
+            background: rgba(99, 102, 241, 0.14);
+            border-color: rgba(99, 102, 241, 0.55);
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.12);
+        }
+
+        /* POWOLNA, NATURALNA ANIMACJA ZACZEPKI NA KAFELKU */
+        .friend-tile-nudge {
+            position: relative;
+            overflow: hidden;
+            animation: tilePulsePop 1.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        .friend-tile-nudge::after {
+            content: '';
+            position: absolute;
+            top: 0; bottom: 0; left: -100%;
+            width: 90%;
+            background: linear-gradient(90deg, transparent, var(--sweep-color, rgba(245, 158, 11, 0.14)), transparent);
+            transform: skewX(-20deg);
+            animation: tileSweepWave 1.8s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+            pointer-events: none;
+            z-index: 1;
+        }
+        @keyframes tilePulsePop {
+            0% { transform: scale(1); }
+            30% { transform: scale(1.012) translateY(-1px); border-color: var(--glow-border, rgba(245, 158, 11, 0.45)); box-shadow: 0 8px 24px var(--glow-shadow, rgba(0, 0, 0, 0.35)); }
+            75% { border-color: var(--glow-border, rgba(245, 158, 11, 0.25)); }
+            100% { transform: scale(1) translateY(0); }
+        }
+        @keyframes tileSweepWave {
+            0% { left: -90%; }
+            100% { left: 130%; }
+        }
+
+        .avatar-ripple-ring { position: relative; }
+        .avatar-ripple-ring::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 9999px;
+            border: 1.5px solid var(--glow-border, rgba(245, 158, 11, 0.6));
+            animation: avatarRippleOut 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            pointer-events: none;
+        }
+        @keyframes avatarRippleOut {
+            0% { transform: scale(0.95); opacity: 0.9; }
+            100% { transform: scale(1.65); opacity: 0; }
+        }
+
+        .floating-nudge-badge {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            padding: 6px 13px;
+            border-radius: 9999px;
+            background: rgba(15, 20, 35, 0.96);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #f4f4f5;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            animation: badgeFloatUp 2.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes badgeFloatUp {
+            0% { transform: translate(-50%, 8px) scale(0.88); opacity: 0; }
+            18% { transform: translate(-50%, -6px) scale(1); opacity: 1; }
+            78% { transform: translate(-50%, -22px) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -34px) scale(0.96); opacity: 0; }
+        }
+
+        .spark-dot {
+            position: fixed;
+            width: 5px;
+            height: 5px;
+            border-radius: 9999px;
+            pointer-events: none;
+            z-index: 9998;
+            animation: sparkFly 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes sparkFly {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 0.85; }
+            100% { transform: translate(calc(-50% + var(--sx)), calc(-50% + var(--sy))) scale(0); opacity: 0; }
+        }
+    </style>
 </head>
-<body class="min-h-screen relative overflow-x-hidden flex flex-col pt-[env(safe-area-inset-top)]">
+<body class="min-h-screen relative overflow-x-hidden flex flex-col pt-[env(safe-area-inset-top)] bg-[#090d16]">
 
-    <!-- EKRAN LOGOWANIA -->
-    <div id="ekran-logowania" class="min-h-screen flex items-center justify-center p-4 animate-fade-in">
-        <div class="glass-panel p-6 sm:p-9 w-full max-w-md relative overflow-hidden">
-            <div class="flex items-center gap-3.5 mb-7 relative z-10">
-                <div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-                    <img src="logo.png" alt="Logo" class="w-9 h-9 object-contain" onerror="this.style.display='none'">
-                </div>
-                <div>
-                    <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">samorzadsolnej.pl</h1>
-                    <span class="emblem emblem-cyan mt-1">Portal Ucznia POSM</span>
-                </div>
+    <!-- CUSTOM ALERTY -->
+    <div id="custom-alert-modal" class="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 transition-opacity">
+        <div class="bg-[#0f1423] border border-white/10 p-6 rounded-3xl w-full max-w-sm shadow-2xl flex flex-col items-center text-center scale-95 transition-transform" id="custom-alert-box">
+            <h3 class="text-xl font-black text-white mb-2" id="custom-alert-title"></h3>
+            <p class="text-sm text-zinc-400 mb-6" id="custom-alert-text"></p>
+            <button onclick="zamknijAlert()" class="btn-classic-primary w-full py-3.5 rounded-xl font-bold text-sm shadow-lg">Zrozumiałem</button>
+        </div>
+    </div>
+    
+    <div id="custom-confirm-modal" class="fixed inset-0 z-[999] bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 transition-opacity">
+        <div class="bg-[#0f1423] border border-white/10 p-6 rounded-3xl w-full max-w-sm shadow-2xl flex flex-col items-center text-center scale-95 transition-transform" id="custom-confirm-box">
+            <h3 class="text-xl font-black text-white mb-2" id="custom-confirm-title"></h3>
+            <p class="text-sm text-zinc-400 mb-6" id="custom-confirm-text"></p>
+            <div class="flex gap-3 w-full">
+                <button onclick="zamknijConfirm()" class="flex-1 bg-white/5 hover:bg-white/10 text-white py-3.5 rounded-xl font-bold text-sm transition-colors border border-white/10">Anuluj</button>
+                <button id="custom-confirm-btn" class="flex-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/50 py-3.5 rounded-xl font-bold text-sm transition-colors">Potwierdź</button>
             </div>
-
-            <div class="flex flex-col gap-4 mb-6 relative z-10">
-                <div>
-                    <label class="text-[11px] font-bold text-slate-300 uppercase tracking-wider ml-1">Login lub kod autoryzacji</label>
-                    <input type="text" id="login-input" placeholder="np. p.nowik lub 0A7F9K2M" autocapitalize="none" autocorrect="off" class="input-modern mt-1.5 w-full rounded-xl px-4 py-3.5">
-                </div>
-                <div>
-                    <label class="text-[11px] font-bold text-slate-300 uppercase tracking-wider ml-1">Hasło</label>
-                    <input type="password" id="haslo-input" placeholder="•••••••••" class="input-modern mt-1.5 w-full rounded-xl px-4 py-3.5">
-                </div>
-            </div>
-
-            <p id="blad-logowania" class="hidden text-rose-400 text-xs font-semibold mb-4 text-center"></p>
-            <button onclick="zalogujUcznia()" class="btn-primary-gradient w-full py-3.5 rounded-xl font-bold text-sm">Zaloguj się</button>
         </div>
     </div>
 
-    <!-- EKRAN ZMIANY HASŁA STARTOWEGO -->
-    <div id="ekran-zmiany-hasla" class="hidden min-h-screen items-center justify-center p-4 animate-fade-in">
-        <div class="glass-panel p-6 sm:p-9 w-full max-w-md">
-            <span class="emblem emblem-amber mb-3">Pierwsze logowanie</span>
-            <h2 class="text-xl font-extrabold text-white mb-6">Ustaw prywatne hasło</h2>
-
-            <div class="flex flex-col gap-4 mb-6">
-                <div>
-                    <label class="text-[11px] font-bold text-slate-300 uppercase tracking-wider ml-1">Nowe hasło</label>
-                    <input type="password" id="nowe-haslo-1" class="input-modern mt-1.5 w-full rounded-xl px-4 py-3.5">
-                </div>
-                <div>
-                    <label class="text-[11px] font-bold text-slate-300 uppercase tracking-wider ml-1">Powtórz hasło</label>
-                    <input type="password" id="nowe-haslo-2" class="input-modern mt-1.5 w-full rounded-xl px-4 py-3.5">
+    <!-- UKRYTY MODAL NARZĘDZI PIOTRA (KOLORY, WRAPPED, KREATOR ODZNAK) -->
+    <div id="modal-sekretny-piotra" class="fixed inset-0 z-[992] modal-overlay hidden items-center justify-center p-4">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-lg relative flex flex-col gap-4 animate-scale-in max-h-[90vh] overflow-y-auto no-scrollbar">
+            <button onclick="ukryjEkran('modal-sekretny-piotra')" class="absolute top-3.5 right-4 text-zinc-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            <div>
+                <span class="emblem emblem-purple mb-1.5">Tryb Deweloperski</span>
+                <h3 class="text-lg font-bold text-white">Panel Piotra</h3>
+            </div>
+            
+            <div>
+                <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-2">Wymuś kolor płomyka</label>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    <button type="button" onclick="ustawWymuszonyKolorPlomyka(null)" class="px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-xs font-bold text-zinc-300 transition-colors">Auto (wg dni)</button>
+                    <button type="button" onclick="ustawWymuszonyKolorPlomyka(1)" class="px-3 py-2 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-xs font-bold text-orange-300 transition-colors">Pomarańczowy</button>
+                    <button type="button" onclick="ustawWymuszonyKolorPlomyka(50)" class="px-3 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-xs font-bold text-rose-300 transition-colors">Karmazynowy</button>
+                    <button type="button" onclick="ustawWymuszonyKolorPlomyka(100)" class="px-3 py-2 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-xs font-bold text-purple-300 transition-colors">Fioletowy</button>
+                    <button type="button" onclick="ustawWymuszonyKolorPlomyka(200)" class="px-3 py-2 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-xs font-bold text-sky-300 transition-colors">Błękitny</button>
+                    <button type="button" onclick="ustawWymuszonyKolorPlomyka(300)" class="px-3 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs font-bold text-emerald-300 transition-colors">Szmaragdowy</button>
+                    <button type="button" onclick="ustawWymuszonyKolorPlomyka(350)" class="col-span-2 sm:col-span-3 px-3 py-2 rounded-xl bg-yellow-500/15 hover:bg-yellow-500/25 border border-yellow-400/40 text-xs font-bold text-yellow-200 transition-colors">Złoty</button>
                 </div>
             </div>
 
-            <p id="blad-zmiany-hasla" class="hidden text-rose-400 text-xs font-semibold mb-4 text-center"></p>
-            <button onclick="zapiszNoweHaslo()" class="btn-primary-gradient w-full py-3.5 rounded-xl font-bold text-sm">Zapisz hasło</button>
+            <div class="pt-3 border-t border-white/10 flex flex-col gap-2">
+                <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Podsumowanie aktywności</label>
+                <button type="button" onclick="ukryjEkran('modal-sekretny-piotra'); uruchomWrapped(biezacyMiesiacString(), this)" class="btn-classic-primary w-full py-3 rounded-xl font-bold text-xs">
+                    Uruchom Solna Wrapped (Bieżący miesiąc) &rarr;
+                </button>
+            </div>
+
+            <!-- KREATOR ODZNAK DLA UCZNIÓW -->
+            <div class="pt-3 border-t border-white/10 flex flex-col gap-3">
+                <div class="flex items-center justify-between">
+                    <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Nadaj odznakę uczniowi</label>
+                </div>
+                <select id="piotr-odznaka-uczen" onchange="odswiezOdznakiWybranegoUczniaPiotr()" class="input-classic w-full rounded-xl px-3.5 py-2.5 text-xs font-semibold">
+                    <option value="">Wybierz ucznia...</option>
+                </select>
+
+                <div>
+                    <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">Wybierz ikonę odznaki</span>
+                    <div id="piotr-odznaka-ikony" class="grid grid-cols-6 gap-1.5"></div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input type="text" id="piotr-odznaka-tytul" maxlength="32" placeholder="Nazwa (np. Halloween)" class="input-classic rounded-xl px-3.5 py-2.5 text-xs">
+                    <input type="text" id="piotr-odznaka-opis" maxlength="120" placeholder="Opis za co (np. 1. miejsce w konkursie)" class="input-classic rounded-xl px-3.5 py-2.5 text-xs">
+                </div>
+
+                <button type="button" onclick="nadajOdznakeUczniowiPiotr()" class="btn-classic-primary w-full py-3 rounded-xl font-bold text-xs">
+                    Przypisz odznakę
+                </button>
+
+                <div id="piotr-odznaki-aktualne-box" class="hidden flex-col gap-1.5 pt-2">
+                    <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Aktualne odznaki wybranego ucznia:</span>
+                    <div id="piotr-odznaki-aktualne-lista" class="flex flex-wrap gap-1.5"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL SZCZEGÓŁÓW ODZNAKI I ZMIANY KOLEJNOŚCI -->
+    <div id="modal-szczegoly-odznaki" class="fixed inset-0 z-[994] modal-overlay hidden items-center justify-center p-4">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-sm relative flex flex-col items-center text-center animate-scale-in">
+            <button onclick="ukryjEkran('modal-szczegoly-odznaki')" class="absolute top-3.5 right-4 text-zinc-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            <div id="odznaka-modal-ikona" class="w-16 h-16 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-3xl mb-3 shadow-lg">
+                🏆
+            </div>
+            <span class="emblem emblem-indigo mb-1.5">Odznaka</span>
+            <h3 id="odznaka-modal-tytul" class="text-lg font-bold text-white mb-2">-</h3>
+            <p id="odznaka-modal-opis" class="text-xs text-zinc-300 leading-relaxed mb-5 px-2">-</p>
+
+            <div id="odznaka-modal-sort-kontener" class="hidden w-full flex-col gap-2 mb-4 pt-3 border-t border-white/10">
+                <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Kolejność na Twoim profilu</span>
+                <div class="flex gap-2 w-full">
+                    <button type="button" id="btn-odznaka-lewo" class="btn-classic-secondary flex-1 py-2.5 rounded-xl font-bold text-xs">&larr; Przesuń wcześniej</button>
+                    <button type="button" id="btn-odznaka-prawo" class="btn-classic-secondary flex-1 py-2.5 rounded-xl font-bold text-xs">Przesuń dalej &rarr;</button>
+                </div>
+            </div>
+
+            <button type="button" onclick="ukryjEkran('modal-szczegoly-odznaki')" class="btn-classic-primary w-full py-3 rounded-xl font-bold text-xs">Zamknij</button>
+        </div>
+    </div>
+
+    <!-- MODAL PODGLĄDU GŁOSÓW (DLA SAMORZĄDU) -->
+    <div id="modal-podglad-glosow" class="fixed inset-0 z-[992] modal-overlay hidden items-center justify-center p-4">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-lg relative flex flex-col max-h-[85vh] animate-scale-in">
+            <button onclick="ukryjEkran('modal-podglad-glosow')" class="absolute top-3.5 right-4 text-zinc-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            <span class="emblem emblem-indigo mb-1.5 w-max">Wykaz imienny</span>
+            <h3 id="podglad-glosow-tytul" class="text-lg font-bold text-white mb-4 pr-6">Szczegóły głosowania</h3>
+            <div id="podglad-glosow-lista" class="flex flex-col gap-3 overflow-y-auto no-scrollbar pr-1 flex-grow"></div>
+            <button type="button" onclick="ukryjEkran('modal-podglad-glosow')" class="btn-classic-secondary w-full py-3 rounded-xl font-bold text-xs mt-5 shrink-0">Zamknij</button>
+        </div>
+    </div>
+
+    <!-- MODAL WYBORU ZACZEPKI -->
+    <div id="modal-duo-zaczepka" class="fixed inset-0 z-[990] modal-overlay hidden items-center justify-center p-4 transition-opacity">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-md relative flex flex-col animate-scale-in">
+            <button onclick="zamknijModalDuoZaczepki()" class="absolute top-3.5 right-4 text-zinc-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            
+            <div class="flex items-center gap-3 mb-4">
+                <div id="duo-modal-badge" class="w-11 h-11 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-xl shrink-0">
+                    🔥
+                </div>
+                <div>
+                    <span class="emblem emblem-indigo" id="duo-modal-subtitle">Powiadomienie</span>
+                    <h3 class="text-lg font-bold text-white mt-1" id="duo-modal-title">Wyślij zaczepkę</h3>
+                </div>
+            </div>
+            
+            <div id="duo-opcje-lista" class="grid grid-cols-1 gap-2.5 w-full mb-5 max-h-[45vh] overflow-y-auto no-scrollbar"></div>
+            
+            <div class="flex gap-2.5 w-full">
+                <button onclick="zamknijModalDuoZaczepki()" class="btn-classic-secondary px-5 py-3.5 rounded-xl font-bold text-xs sm:text-sm">Anuluj</button>
+                <button id="btn-wyslij-duo-zaczepke" onclick="potwierdzWyslanieDuoZaczepki()" class="btn-classic-primary flex-1 py-3.5 rounded-xl font-bold text-xs sm:text-sm">
+                    Wyślij
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ODEBRANEJ ZACZEPKI -->
+    <div id="modal-odebrana-zaczepka" class="fixed inset-0 z-[995] modal-overlay hidden items-center justify-center p-4">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-sm flex flex-col items-center text-center relative animate-scale-in">
+            <div id="odebrana-ikona" class="w-14 h-14 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-2xl mb-3">
+                🔥
+            </div>
+            
+            <span class="emblem emblem-indigo mb-2" id="odebrana-od-kogo">Nowa zaczepka</span>
+            <h3 class="text-lg font-bold text-white mb-3" id="odebrana-naglowek">Czas na ćwiczenie</h3>
+            
+            <div class="bg-zinc-900/70 border border-white/10 rounded-2xl p-4 w-full mb-5">
+                <p class="text-xs sm:text-sm text-zinc-200 leading-relaxed" id="odebrana-tresc"></p>
+            </div>
+            
+            <div class="flex gap-2.5 w-full">
+                <button id="btn-odmachaj-duo" onclick="odmachajZnajomemu()" class="btn-classic-secondary flex-1 py-3 rounded-xl font-bold text-xs sm:text-sm">
+                    Odmachaj 👋
+                </button>
+                <button onclick="zamknijOdebranaZaczepke()" class="btn-classic-primary flex-1 py-3 rounded-xl font-bold text-xs sm:text-sm">
+                    Zamknij
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDYCJI AWATARA -->
+    <div id="modal-zmiana-avataru" class="fixed inset-0 z-[990] modal-overlay hidden items-center justify-center p-4">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-md relative flex flex-col animate-scale-in max-h-[92vh] overflow-y-auto no-scrollbar">
+            <button onclick="zamknijModalAvataru()" class="absolute top-3.5 right-4 text-zinc-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            <span class="emblem emblem-indigo mb-2 w-max">Personalizacja</span>
+            <h3 class="text-lg font-bold text-white mb-4">Twój awatar profilowy</h3>
+
+            <div class="flex items-center gap-4 bg-zinc-900/60 p-4 rounded-2xl border border-white/5 mb-5">
+                <div id="avatar-modal-preview" class="w-16 h-16 rounded-2xl bg-zinc-800 border border-white/15 flex items-center justify-center text-xl font-black text-white overflow-hidden shrink-0">
+                    -
+                </div>
+                <div class="flex flex-col gap-2 w-full">
+                    <label class="btn-classic-secondary px-4 py-2.5 rounded-xl font-bold text-xs text-center cursor-pointer block">
+                        Wybierz zdjęcie z urządzenia
+                        <input type="file" id="input-avatar-plik" accept="image/*" onchange="wczytajPlikAvataru(event)" class="hidden">
+                    </label>
+                    <button type="button" onclick="usunWlasnyAvatar()" class="text-[11px] text-zinc-400 hover:text-rose-400 font-semibold text-left ml-1 transition-colors">Przywróć domyślne inicjały</button>
+                </div>
+            </div>
+
+            <!-- OBSZAR KADROWANIA ZDJĘCIA -->
+            <div id="avatar-cropper-kontener" class="hidden flex-col items-center bg-zinc-950/80 p-4 rounded-2xl border border-indigo-500/30 mb-5">
+                <p class="text-[11px] text-zinc-300 font-semibold mb-2.5">Przesuń zdjęcie palcem lub myszką, aby ustawić kadr:</p>
+                <div class="relative w-[200px] h-[200px] rounded-2xl overflow-hidden border-2 border-indigo-400/60 shadow-lg touch-none cursor-move bg-black">
+                    <canvas id="avatar-crop-canvas" width="200" height="200" class="w-full h-full block"></canvas>
+                </div>
+                <div class="flex items-center gap-3 w-full mt-3.5 px-2">
+                    <span class="text-[10px] font-bold text-zinc-400 uppercase">Zoom</span>
+                    <input type="range" id="avatar-crop-zoom" min="1" max="3" step="0.02" value="1" oninput="zmienZoomKadrowania(this.value)" class="flex-grow accent-indigo-500 cursor-pointer">
+                </div>
+            </div>
+
+            <div class="flex gap-2.5">
+                <button type="button" onclick="zamknijModalAvataru()" class="btn-classic-secondary px-5 py-3 rounded-xl font-bold text-xs">Anuluj</button>
+                <button type="button" onclick="zapiszNowyAvatar()" class="btn-classic-primary flex-1 py-3 rounded-xl font-bold text-xs">Zapisz awatar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DOBROWOLNEJ ZMIANY HASŁA -->
+    <div id="modal-zmiana-hasla-dobrowolna" class="fixed inset-0 z-[990] modal-overlay hidden items-center justify-center p-4">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-md relative flex flex-col animate-scale-in">
+            <button onclick="zamknijModalZmianyHasla()" class="absolute top-3.5 right-4 text-zinc-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            <span class="emblem emblem-amber mb-2 w-max">Bezpieczeństwo</span>
+            <h3 class="text-lg font-bold text-white mb-4">Zmień hasło do konta</h3>
+
+            <div class="flex flex-col gap-3.5 mb-6">
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Obecne hasło</label>
+                    <input type="password" id="zmiana-obecne-haslo" class="input-classic w-full rounded-xl px-4 py-3 mt-1">
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Nowe hasło (min. 4 znaki)</label>
+                    <input type="password" id="zmiana-nowe-haslo-1" class="input-classic w-full rounded-xl px-4 py-3 mt-1">
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Powtórz nowe hasło</label>
+                    <input type="password" id="zmiana-nowe-haslo-2" class="input-classic w-full rounded-xl px-4 py-3 mt-1">
+                </div>
+            </div>
+
+            <div class="flex gap-2.5">
+                <button type="button" onclick="zamknijModalZmianyHasla()" class="btn-classic-secondary px-5 py-3 rounded-xl font-bold text-xs">Anuluj</button>
+                <button type="button" onclick="zatwierdzDobrowolnaZmianeHasla()" class="btn-classic-primary flex-1 py-3 rounded-xl font-bold text-xs">Zaktualizuj hasło</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PROGÓW PŁOMYKA (TYLKO KOLORY I DNI) -->
+    <div id="modal-poziomy-streaka" class="fixed inset-0 z-[990] modal-overlay hidden items-center justify-center p-4">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-md relative flex flex-col animate-scale-in">
+            <button onclick="zamknijModalPoziomowStreaka()" class="absolute top-3.5 right-4 text-zinc-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            <span class="emblem emblem-amber mb-2 w-max">Seria dni</span>
+            <h3 class="text-lg font-bold text-white mb-4">Kolory płomyka</h3>
+
+            <div class="flex flex-col gap-2 mb-5">
+                <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-zinc-900/60 border border-orange-500/25">
+                    <div class="flex items-center gap-3">
+                        <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-orange-500 to-amber-300"></span>
+                        <span class="text-xs font-bold text-white">Pomarańczowy</span>
+                    </div>
+                    <span class="text-xs font-extrabold text-orange-400">1 – 49 dni</span>
+                </div>
+                <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-zinc-900/60 border border-rose-500/25">
+                    <div class="flex items-center gap-3">
+                        <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-rose-600 to-pink-300"></span>
+                        <span class="text-xs font-bold text-white">Karmazynowy</span>
+                    </div>
+                    <span class="text-xs font-extrabold text-rose-400">50 – 99 dni</span>
+                </div>
+                <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-zinc-900/60 border border-purple-500/25">
+                    <div class="flex items-center gap-3">
+                        <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-purple-600 to-purple-300"></span>
+                        <span class="text-xs font-bold text-white">Fioletowy</span>
+                    </div>
+                    <span class="text-xs font-extrabold text-purple-300">100 – 199 dni</span>
+                </div>
+                <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-zinc-900/60 border border-sky-500/25">
+                    <div class="flex items-center gap-3">
+                        <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-sky-500 to-cyan-200"></span>
+                        <span class="text-xs font-bold text-white">Błękitny</span>
+                    </div>
+                    <span class="text-xs font-extrabold text-sky-300">200 – 299 dni</span>
+                </div>
+                <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-zinc-900/60 border border-emerald-500/25">
+                    <div class="flex items-center gap-3">
+                        <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-emerald-500 to-teal-200"></span>
+                        <span class="text-xs font-bold text-white">Szmaragdowy</span>
+                    </div>
+                    <span class="text-xs font-extrabold text-emerald-300">300 – 349 dni</span>
+                </div>
+                <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-gradient-to-r from-yellow-500/15 to-amber-500/5 border border-yellow-400/40">
+                    <div class="flex items-center gap-3">
+                        <span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-yellow-400 via-amber-200 to-white"></span>
+                        <span class="text-xs font-bold text-yellow-200">Złoty</span>
+                    </div>
+                    <span class="text-xs font-extrabold text-yellow-300">350 – 365+ dni</span>
+                </div>
+            </div>
+
+            <button type="button" onclick="zamknijModalPoziomowStreaka()" class="btn-classic-primary w-full py-3 rounded-xl font-bold text-xs">Zamknij</button>
+        </div>
+    </div>
+
+    <!-- MODAL WIZYTÓWKI ZNAJOMEGO (Z ODZNAKAMI I POJEDYNKIEM 1V1) -->
+    <div id="modal-profil-znajomego" class="fixed inset-0 z-[990] modal-overlay hidden items-center justify-center p-4">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-sm relative flex flex-col items-center text-center animate-scale-in max-h-[92vh] overflow-y-auto no-scrollbar">
+            <button onclick="zamknijProfilZnajomego()" class="absolute top-3.5 right-4 text-zinc-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            
+            <div id="znajomy-modal-avatar" class="w-20 h-20 rounded-2xl bg-zinc-800 border border-white/15 flex items-center justify-center text-2xl font-black text-white overflow-hidden mb-3 shadow-lg shrink-0">
+                -
+            </div>
+            <h3 id="znajomy-modal-imie" class="text-lg font-bold text-white">-</h3>
+            <p id="znajomy-modal-klasa" class="text-xs text-zinc-400 mt-0.5 mb-3">-</p>
+
+            <!-- ODZNAKI ZNAJOMEGO -->
+            <div id="znajomy-modal-odznaki" class="hidden flex-wrap justify-center gap-1.5 w-full mb-4"></div>
+
+            <div class="grid grid-cols-2 gap-2.5 w-full mb-3">
+                <div class="bg-zinc-900/70 border border-white/5 rounded-xl p-3">
+                    <span class="text-[10px] font-bold text-zinc-400 uppercase block">Seria dni</span>
+                    <span id="znajomy-modal-streak" class="text-lg font-black text-orange-400 mt-0.5 block">0</span>
+                </div>
+                <div class="bg-zinc-900/70 border border-white/5 rounded-xl p-3">
+                    <span class="text-[10px] font-bold text-zinc-400 uppercase block">Dzisiaj w sali</span>
+                    <span id="znajomy-modal-dzis" class="text-lg font-black text-indigo-300 mt-0.5 block">0 min</span>
+                </div>
+            </div>
+
+            <!-- POJEDYNEK 1V1 (TEN TYDZIEŃ) -->
+            <div class="bg-zinc-900/70 border border-white/5 rounded-xl p-3.5 w-full mb-3 text-left">
+                <div class="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-2">
+                    <span class="text-indigo-300">Ty (<span id="duel-moje-min">0m</span>)</span>
+                    <span>Ten tydzień</span>
+                    <span class="text-emerald-300"><span id="duel-znajomy-imie">Znajomy</span> (<span id="duel-znajomy-min">0m</span>)</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-zinc-800 overflow-hidden flex">
+                    <div id="duel-bar-ja" class="h-full bg-indigo-500 transition-all duration-500" style="width: 50%"></div>
+                    <div id="duel-bar-on" class="h-full bg-emerald-400 transition-all duration-500" style="width: 50%"></div>
+                </div>
+            </div>
+
+            <div class="bg-zinc-900/70 border border-white/5 rounded-xl p-3 w-full text-left mb-2.5">
+                <span class="text-[10px] font-bold text-zinc-400 uppercase block">Instrumenty</span>
+                <span id="znajomy-modal-instrumenty" class="text-xs font-bold text-white mt-0.5 block">-</span>
+            </div>
+
+            <div class="bg-zinc-900/70 border border-white/5 rounded-xl p-3 w-full text-left mb-5">
+                <span class="text-[10px] font-bold text-zinc-400 uppercase block">Ulubione sale</span>
+                <span id="znajomy-modal-ulubione" class="text-xs font-semibold text-zinc-300 mt-0.5 block">Brak wybranych</span>
+            </div>
+
+            <div class="flex gap-2.5 w-full">
+                <button type="button" id="znajomy-modal-btn-zaczep" class="btn-classic-primary flex-1 py-3 rounded-xl font-bold text-xs">Zaczep</button>
+                <button type="button" onclick="zamknijProfilZnajomego()" class="btn-classic-secondary px-5 py-3 rounded-xl font-bold text-xs">Zamknij</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EKRAN POWITANIA -->
+    <div id="ekran-powitania" class="hidden fixed inset-0 z-[100] bg-[#090d16] flex-col items-center justify-center transition-opacity duration-700"></div>
+
+    <!-- EKRAN LOGOWANIA -->
+    <div id="ekran-logowania" class="hidden min-h-[90vh] flex-col items-center justify-center p-4 relative">
+        <a href="https://muzycznanasolnej.pl/" class="absolute top-4 left-4 flex items-center justify-center p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-zinc-400 hover:text-white z-50">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:mr-1.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" /></svg>
+            <span class="text-xs font-bold hidden sm:block">Szkoła</span>
+        </a>
+
+        <div class="glass-panel p-6 sm:p-8 w-full max-w-md relative overflow-hidden mt-8">
+            <div class="flex items-center gap-3.5 mb-7">
+                <div class="w-12 h-12 rounded-2xl overflow-hidden bg-white border border-white/15 shrink-0 shadow-md">
+                    <img src="logo.png" alt="Logo" class="w-full h-full object-cover scale-125" onerror="this.style.display='none'">
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight">Samorząd Solnej</h1>
+                    <span class="emblem emblem-indigo mt-1">Portal Ucznia POSM</span>
+                </div>
+            </div>
+
+            <form onsubmit="event.preventDefault(); zalogujUcznia();" class="flex flex-col gap-4 mb-6">
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Login</label>
+                    <input type="text" id="login-input" autocapitalize="none" autocorrect="off" class="input-classic w-full rounded-xl px-4 py-3.5">
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Hasło</label>
+                    <input type="password" id="haslo-input" class="input-classic w-full rounded-xl px-4 py-3.5">
+                </div>
+                <button type="submit" class="btn-classic-primary w-full py-3.5 rounded-xl font-bold text-sm mt-2">Zaloguj się</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- EKRAN ZMIANY HASŁA (PIERWSZE LOGOWANIE) -->
+    <div id="ekran-zmiany-hasla" class="hidden min-h-[90vh] flex-col items-center justify-center p-4 relative">
+        <div class="glass-panel p-6 sm:p-8 w-full max-w-md mt-8">
+            <span class="emblem emblem-amber mb-3">Pierwsze logowanie</span>
+            <h2 class="text-xl font-bold text-white mb-6">Ustaw prywatne hasło</h2>
+            <div class="flex flex-col gap-4 mb-6">
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Nowe hasło</label>
+                    <input type="password" id="nowe-haslo-1" class="input-classic w-full rounded-xl px-4 py-3.5">
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Powtórz hasło</label>
+                    <input type="password" id="nowe-haslo-2" class="input-classic w-full rounded-xl px-4 py-3.5">
+                </div>
+            </div>
+            <button onclick="zapiszNoweHaslo()" class="btn-classic-primary w-full py-3.5 rounded-xl font-bold text-sm">Zapisz hasło</button>
         </div>
     </div>
 
     <!-- GŁÓWNY EKRAN -->
     <div id="ekran-glowny" class="hidden flex-col min-h-screen pb-12">
-        
         <nav class="glass-panel mx-2.5 sm:mx-4 mt-3 sm:mt-4 px-3.5 sm:px-6 py-3 sticky top-3 z-40 flex flex-col md:flex-row justify-between items-center gap-3 max-w-7xl xl:mx-auto w-auto">
             <div class="flex items-center justify-between w-full md:w-auto">
                 <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-                        <img src="logo.png" alt="Logo" class="w-7 h-7 object-contain" onerror="this.style.display='none'">
+                    <a href="https://muzycznanasolnej.pl/" class="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors shrink-0 text-zinc-300 hover:text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" /></svg>
+                    </a>
+                    <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl overflow-hidden bg-white border border-white/15 shrink-0 shadow-md">
+                        <img src="logo.png" alt="Logo" class="w-full h-full object-cover scale-125" onerror="this.style.display='none'">
                     </div>
                     <div>
-                        <h1 class="text-sm sm:text-lg font-extrabold tracking-tight text-white leading-tight">samorzadsolnej.pl</h1>
-                        <p id="nav-uczen-info" class="text-[11px] text-teal-300 font-semibold truncate max-w-[165px] sm:max-w-xs">-</p>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-base sm:text-lg font-bold tracking-tight text-white leading-tight">Samorząd Solnej</h1>
+                        </div>
+                        <p id="nav-uczen-info" class="text-[11px] text-indigo-400 font-semibold truncate max-w-[190px] sm:max-w-xs">-</p>
                     </div>
                 </div>
-
                 <div class="flex md:hidden items-center gap-1.5">
-                    <button onclick="otworzModalQR()" class="btn-primary-gradient px-3 py-2 rounded-xl text-xs font-bold">Kod QR</button>
-                    <button onclick="wylogujUcznia()" class="btn-secondary-glass px-3 py-2 rounded-xl text-xs font-semibold">Wyloguj</button>
+                    <button onclick="wylogujUcznia()" class="btn-classic-secondary px-3 py-2 rounded-xl text-xs font-semibold shrink-0">Wyloguj</button>
                 </div>
             </div>
 
-            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full md:w-auto justify-center bg-slate-950/70 p-1.5 rounded-2xl border border-white/10">
-                <button onclick="przelaczZakladkeUcznia('salki')" id="tab-uczen-salki" class="nav-tab flex-1 md:flex-initial text-center active">Salki</button>
-                <button onclick="przelaczZakladkeUcznia('glosowania')" id="tab-uczen-glosowania" class="nav-tab flex-1 md:flex-initial flex items-center justify-center gap-1.5">
-                    <span>Głosowania</span>
-                    <span id="badge-ankiety-count" class="hidden bg-teal-400 text-slate-950 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full leading-none">0</span>
+            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full md:w-auto justify-start md:justify-center bg-zinc-950/70 p-1.5 rounded-2xl border border-white/10">
+                <button onclick="przelaczZakladkeUcznia('start')" id="tab-uczen-start" class="nav-tab shrink-0 text-center active">Mój Profil</button>
+                <button onclick="przelaczZakladkeUcznia('znajomi')" id="tab-uczen-znajomi" class="nav-tab shrink-0 flex items-center justify-center gap-1.5">
+                    <span>Znajomi</span>
+                    <span id="badge-zaproszenia-count" class="hidden bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">0</span>
                 </button>
-                <button onclick="przelaczZakladkeUcznia('propozycje')" id="tab-uczen-propozycje" class="nav-tab flex-1 md:flex-initial text-center">Propozycje</button>
+                <button onclick="przelaczZakladkeUcznia('salki')" id="tab-uczen-salki" class="nav-tab shrink-0 text-center">Salki</button>
+                <button onclick="przelaczZakladkeUcznia('glosowania')" id="tab-uczen-glosowania" class="nav-tab shrink-0 flex items-center justify-center gap-1.5">
+                    <span>Głosowania</span>
+                    <span id="badge-ankiety-count" class="hidden bg-indigo-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none">0</span>
+                </button>
+                <button onclick="przelaczZakladkeUcznia('propozycje')" id="tab-uczen-propozycje" class="nav-tab shrink-0 text-center">Propozycje</button>
+                <button onclick="przelaczZakladkeUcznia('panel-samorzadu')" id="tab-uczen-panel-samorzadu" class="hidden nav-tab shrink-0 text-center border border-indigo-500/50 text-indigo-300">Zarządzaj</button>
             </div>
 
             <div class="hidden md:flex items-center gap-2.5">
-                <button onclick="otworzModalQR()" class="btn-primary-gradient px-4 py-2.5 rounded-xl text-xs font-bold">Mój Kod QR</button>
-                <button onclick="wylogujUcznia()" class="btn-secondary-glass px-4 py-2.5 rounded-xl text-xs font-semibold">Wyloguj</button>
+                <button onclick="wylogujUcznia()" class="btn-classic-secondary px-4 py-2.5 rounded-xl text-xs font-semibold">Wyloguj</button>
             </div>
         </nav>
 
-        <!-- WIDOK 1: SALKI -->
-        <div id="widok-salki" class="max-w-7xl mx-auto p-2.5 sm:p-4 mt-1 flex-grow w-full flex flex-col gap-4 sm:gap-5 animate-fade-in">
-            <div class="glass-panel p-3.5 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3.5">
-                <div class="flex gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto pb-0.5">
-                    <button onclick="ustawFiltr('wszystkie')" id="btn-wszystkie" class="filtr-btn active">Wszystkie</button>
-                    <button onclick="ustawFiltr('wolne')" id="btn-wolne" class="filtr-btn">Tylko wolne</button>
-                    <button onclick="ustawFiltr('fortepian')" id="btn-fortepian" class="filtr-btn">Z fortepianem</button>
+        <!-- WIDOK 0: MÓJ PROFIL -->
+        <div id="widok-start" class="max-w-5xl mx-auto p-2.5 sm:p-4 mt-1 flex-grow w-full flex flex-col gap-4 sm:gap-5">
+            
+            <div id="panel-odnowy-streaka" class="hidden glass-panel p-5 sm:p-6 border-l-4 border-l-amber-500/60 relative overflow-hidden">
+                <div class="flex items-center justify-between mb-2.5 relative z-10">
+                    <span class="emblem emblem-amber">Seria wstrzymana</span>
+                    <span class="text-xs font-bold text-zinc-300" id="streak-brakujacy-czas">Do odrobienia: 0h</span>
                 </div>
+                <h3 class="text-base sm:text-lg font-bold text-white mb-1.5 relative z-10">Przerwa w serii dni</h3>
+                <p class="text-xs text-zinc-400 mb-4 relative z-10 leading-relaxed">Aby zachować dotychczasową ciągłość serii, uzupełnij brakujący czas ćwiczeń w ciągu 2 dni roboczych. Po tym terminie licznik zacznie naliczać się od nowa.</p>
+                
+                <div class="w-full bg-zinc-900 rounded-full h-2.5 mb-2 overflow-hidden border border-white/5 relative z-10">
+                    <div id="streak-progress-bar" class="bg-gradient-to-r from-indigo-500 to-emerald-400 h-2.5 rounded-full transition-all duration-1000" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-4 relative z-10">
+                    <span id="streak-progress-text">0 / 0 min</span>
+                    <span>100%</span>
+                </div>
+                
+                <button id="btn-odzyskaj-streak" onclick="odzyskajStreak()" class="w-full py-3 rounded-xl font-bold text-xs sm:text-sm bg-zinc-800 text-zinc-500 cursor-not-allowed transition-all relative z-10 border border-transparent">Przywróć serię</button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 stagger-1">
+                <div class="glass-panel profile-hero-card p-5 sm:p-6 md:col-span-2 flex flex-col justify-between gap-4">
+                    <div class="profile-ambient-orb"></div>
+                    <div class="flex items-center gap-4 relative z-10">
+                        <!-- KLIKALNY AWATAR PROFILOWY -->
+                        <div onclick="otworzModalAvataru()" class="relative group cursor-pointer shrink-0" title="Kliknij, aby zmienić awatar">
+                            <div id="start-avatar-box" class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-zinc-800/90 border border-white/15 flex items-center justify-center text-xl sm:text-2xl font-black text-white overflow-hidden shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:border-indigo-400/50">
+                                -
+                            </div>
+                            <span class="absolute -bottom-1 -right-1 w-6 h-6 rounded-lg bg-indigo-500 text-white flex items-center justify-center text-[11px] shadow-md border border-[#090d16] transition-transform duration-300 group-hover:scale-110">✎</span>
+                        </div>
+
+                        <div>
+                            <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+                                <span id="badge-twoj-profil" onclick="otworzSekretnyPanelPiotra()" class="emblem emblem-indigo select-none">Twój Profil</span>
+                                <button type="button" id="btn-sekretny-piotra" onclick="otworzSekretnyPanelPiotra()" class="hidden w-5 h-5 rounded-full bg-white/5 hover:bg-white/15 text-zinc-500 hover:text-zinc-300 items-center justify-center text-[10px] transition-colors" title="Opcje">•••</button>
+                            </div>
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <h2 id="start-powitanie" class="text-2xl sm:text-3xl font-bold text-white tracking-tight">-</h2>
+                                
+                                <!-- PŁONĄCY PŁOMYK SVG -->
+                                <div id="start-streak-wrapper" onclick="otworzModalPoziomowStreaka()" class="flex items-center streak-active relative cursor-pointer group" title="Kliknij, aby zobaczyć kolory płomyka">
+                                    <div class="streak-icon-wrapper z-10 transition-transform duration-300 group-hover:scale-110">
+                                        <div class="streak-icon-bg">
+                                            <svg class="flame-svg" viewBox="0 0 36 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M18.5 2C18.5 2 29 11.5 29 23.5C29 31.5 23.5 38 17.5 38C11.5 38 6 32 6 24C6 17.5 10.5 11.5 10.5 11.5C10.5 11.5 9.5 16.5 12.5 18.5C11.5 12 18.5 2 18.5 2Z" fill="#71717a"/>
+                                            </svg>
+                                        </div>
+                                        <div class="streak-icon-fg" id="start-streak-icon-fill">
+                                            <svg class="flame-svg" viewBox="0 0 36 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <circle class="flame-spark-1" cx="15" cy="11" r="1.6"/>
+                                                <circle class="flame-spark-2" cx="21" cy="13" r="1.3"/>
+                                                <path class="flame-tongue-outer" d="M18.5 2C18.5 2 29.5 11.5 29.5 23.5C29.5 31.8 23.8 38.5 17.5 38.5C11.2 38.5 5.5 32 5.5 24C5.5 17.5 10.2 11 10.2 11C10.2 11 9.2 16.2 12.5 18.2C11.2 11.8 18.5 2 18.5 2Z"/>
+                                                <path class="flame-tongue-mid" d="M18 10C18 10 25.5 16.5 25.5 25C25.5 31 21.8 36 17.5 36C13.2 36 9.5 31.2 9.5 25.5C9.5 20.5 13 16 13 16C13 16 12.8 19.5 15 21C14.2 16 18 10 18 10Z"/>
+                                                <path class="flame-tongue-core" d="M17.5 20C17.5 20 22 24 22 29C22 32.8 19.8 35.5 17.5 35.5C15.2 35.5 13 32.8 13 29C13 25 17.5 20 17.5 20Z"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <span id="start-streak-count" class="text-3xl sm:text-4xl font-black relative z-10">0</span>
+                                </div>
+                            </div>
+                            <p id="start-klasa" class="text-xs sm:text-sm text-zinc-400 mt-1">-</p>
+                        </div>
+                    </div>
+
+                    <!-- TWOJE ODZNAKI W PROFILU -->
+                    <div id="start-odznaki-kontener" class="hidden flex-col gap-1.5 pt-3 border-t border-white/10 relative z-10">
+                        <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Twoje odznaki</span>
+                        <div id="start-odznaki-lista" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-white/10 relative z-10">
+                        <div class="profile-stat-box rounded-xl p-3.5">
+                            <span id="label-instr-1" class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Główny instrument</span>
+                            <span id="start-instr-1" class="text-sm font-bold text-white mt-0.5 block">-</span>
+                        </div>
+                        <div class="profile-stat-box rounded-xl p-3.5">
+                            <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Drugi instrument</span>
+                            <span id="start-instr-2" class="text-sm font-bold text-indigo-300 mt-0.5 block">Brak</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-5 sm:p-6 flex flex-col justify-between gap-4">
+                    <div>
+                        <span class="emblem emblem-emerald mb-2">Stan Sal na Żywo</span>
+                        <div class="flex items-baseline gap-2 mt-1">
+                            <span id="start-wolne-liczba" class="text-3xl font-extrabold text-emerald-400">0</span>
+                            <span class="text-xs text-zinc-400">wolnych ze wszystkich</span>
+                        </div>
+                        <p class="text-[11px] text-zinc-400 mt-2 leading-relaxed">
+                            Pon–Pt: 7:00–21:00 (klucze do 20:00)<br>
+                            Sobota: 8:00–17:00 (17–19 zgoda)<br>
+                            Niedziela: 8:00–19:00 (tylko zgoda)
+                        </p>
+                    </div>
+                    <button onclick="przelaczZakladkeUcznia('salki')" class="btn-classic-primary w-full py-3 rounded-xl text-xs font-bold">Przejdź do tablicy sal</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 stagger-2">
+                <div class="glass-panel p-5 sm:p-6 flex flex-col justify-between h-full">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="emblem emblem-purple">Prywatność i System Push</span>
+                        </div>
+                        <div class="flex flex-col gap-3">
+                            <div class="flex justify-between items-center gap-4 bg-zinc-900/40 p-3.5 rounded-xl border border-white/5">
+                                <div>
+                                    <h4 class="text-sm font-bold text-white">Udostępniaj salę</h4>
+                                    <p class="text-[11px] text-zinc-400 mt-0.5">Znajomi zobaczą, w jakiej sali aktualnie ćwiczysz</p>
+                                </div>
+                                <label class="toggle-switch-wrap shrink-0">
+                                    <input type="checkbox" id="ustawienie-prywatnosc-sala" onchange="zmienUstawieniePrywatnosci(this.checked)" class="sr-only">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="flex justify-between items-center gap-4 bg-zinc-900/40 p-3.5 rounded-xl border border-white/5">
+                                <div>
+                                    <h4 class="text-sm font-bold text-white">Ranking tygodniowy</h4>
+                                    <p class="text-[11px] text-zinc-400 mt-0.5">Uwzględniaj mój czas w Podium Tygodnia</p>
+                                </div>
+                                <label class="toggle-switch-wrap shrink-0">
+                                    <input type="checkbox" id="ustawienie-prywatnosc-ranking" onchange="zmienUstawienieRankingu(this.checked)" class="sr-only">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            
+                            <div class="flex justify-between items-center gap-4 bg-zinc-900/40 p-3.5 rounded-xl border border-white/5">
+                                <div>
+                                    <h4 class="text-sm font-bold text-white">Ulubione sale</h4>
+                                    <p class="text-[11px] text-zinc-400 mt-0.5">Powiadom, gdy ulubiona sala się zwolni</p>
+                                </div>
+                                <label class="toggle-switch-wrap shrink-0">
+                                    <input type="checkbox" id="push-ulubione" onchange="zmienUstawieniePush('ulubione', this.checked)" class="sr-only">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="flex justify-between items-center gap-4 bg-zinc-900/40 p-3.5 rounded-xl border border-white/5">
+                                <div>
+                                    <h4 class="text-sm font-bold text-white">Nowe ankiety</h4>
+                                    <p class="text-[11px] text-zinc-400 mt-0.5">Powiadom o głosowaniach Samorządu</p>
+                                </div>
+                                <label class="toggle-switch-wrap shrink-0">
+                                    <input type="checkbox" id="push-ankiety" onchange="zmienUstawieniePush('ankiety', this.checked)" class="sr-only">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-t border-white/5 flex justify-end">
+                        <button type="button" onclick="otworzModalZmianyHasla()" class="text-[11px] font-semibold text-zinc-500 hover:text-zinc-300 transition-colors">
+                            Zmień hasło do konta
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-4 sm:gap-5 stagger-3">
+                    <div class="glass-panel p-5 sm:p-6">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="emblem emblem-amber">Aktualności</span>
+                        </div>
+                        <div id="start-lista-powiadomien" class="flex flex-col gap-3"></div>
+                    </div>
+                    
+                    <div class="glass-panel p-5 sm:p-6">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="emblem emblem-emerald">Twoje Zgody Weekendowe</span>
+                        </div>
+                        <div id="start-lista-zgod" class="flex flex-col gap-2.5"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- WIDOK: ZNAJOMI -->
+        <div id="widok-znajomi" class="hidden max-w-4xl mx-auto p-2.5 sm:p-4 mt-1 flex-grow w-full flex-col gap-4 sm:gap-5">
+            
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div class="glass-panel p-6 md:col-span-2 flex flex-col items-center justify-center text-center border-t-2 border-t-indigo-500 relative overflow-hidden">
+                    <div class="absolute top-[-40px] right-[-40px] w-36 h-36 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <span class="text-[10px] text-zinc-400 font-bold uppercase tracking-widest block mb-3">Twój Kod Znajomego</span>
+                    <div class="w-32 h-32 aspect-square shrink-0 bg-white rounded-2xl p-2.5 mb-4 shadow-lg border border-white/20 flex items-center justify-center">
+                        <img id="img-qr-kod" src="" alt="Twój kod QR" class="w-full h-full object-contain">
+                    </div>
+                    <h2 id="moj-kod-znajomego" onclick="kopiujMojKod()" class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 tracking-widest select-all cursor-pointer" title="Kliknij, aby skopiować">--- --- ---</h2>
+                    <span class="text-[10px] text-zinc-500 mt-1">Kliknij kod, aby skopiować do schowka</span>
+                </div>
+
+                <div class="glass-panel p-6 md:col-span-3 flex flex-col justify-between gap-4">
+                    <div>
+                        <span class="emblem emblem-indigo mb-2">Dodaj znajomego</span>
+                        <h3 class="text-lg font-bold text-white">Połącz profil ze znajomymi</h3>
+                        <p class="text-xs text-zinc-400 mt-1 leading-relaxed">Wpisz 9-cyfrowy kod znajomego lub zeskanuj jego kod QR, aby widzieć w jakiej sali aktualnie ćwiczy, sprawdzać wizytówki oraz porównywać serie dni.</p>
+                    </div>
+                    <div class="flex flex-col gap-2.5">
+                        <input type="tel" id="input-dodaj-znajomego" oninput="formatujInputKodu(this)" placeholder="Wpisz kod np. 123 456 789" class="input-classic w-full rounded-xl px-4 py-3.5 text-base font-bold tracking-widest text-center sm:text-left shadow-inner" maxlength="11">
+                        <div class="flex flex-col sm:flex-row gap-2.5">
+                            <button onclick="otworzSkanerQR()" class="btn-classic-secondary px-5 py-3.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 sm:w-auto">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6H4z"></path><path d="M14 4h6v6h-6z"></path><path d="M4 14h6v6H4z"></path><path d="M14 14h6v6h-6z"></path></svg>
+                                Skanuj QR
+                            </button>
+                            <button onclick="dodajZnajomegoPoKodie()" class="btn-classic-primary flex-1 px-6 py-3.5 rounded-xl font-bold text-xs sm:text-sm">
+                                Wyślij zaproszenie
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PODIUM TYGODNIA (PEŁNA TABELA UCZNIÓW) -->
+            <div class="glass-panel p-5 sm:p-6">
+                <div class="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-white/10">
+                    <span class="emblem emblem-amber">Podium Tygodnia</span>
+                    <span class="text-[11px] font-semibold text-zinc-400">Od poniedziałku</span>
+                </div>
+                <div id="podium-tygodnia-render" class="flex flex-col gap-2 max-h-[360px] overflow-y-auto no-scrollbar"></div>
+            </div>
+
+            <!-- OTRZYMANE I WYSŁANE ZAPROSZENIA -->
+            <div id="kontener-zaproszen" class="hidden flex-col gap-3"></div>
+            <div id="kontener-zaproszen-wyslanych" class="hidden flex-col gap-2"></div>
+
+            <!-- LISTA ZNAJOMYCH Z SORTOWANIEM -->
+            <div class="glass-panel p-5 sm:p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-3.5 border-b border-white/10">
+                    <div class="flex items-center gap-2.5">
+                        <span class="emblem emblem-emerald">Lista Znajomych</span>
+                        <span class="text-xs font-bold text-zinc-400 bg-white/5 px-2.5 py-1 rounded-md" id="licznik-znajomych">0 osób</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 bg-zinc-950/70 p-1 rounded-xl border border-white/10 self-start sm:self-auto">
+                        <button type="button" id="sort-znajomi-streak" onclick="zmienSortowanieZnajomych('streak')" class="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-white/10 text-white transition-all">Wg serii 🔥</button>
+                        <button type="button" id="sort-znajomi-dzis" onclick="zmienSortowanieZnajomych('dzis')" class="px-3 py-1.5 rounded-lg text-[11px] font-bold text-zinc-400 hover:text-white transition-all">Dzisiejszy czas ⏱️</button>
+                    </div>
+                </div>
+                <div id="lista-znajomych-render" class="flex flex-col gap-3"></div>
+            </div>
+        </div>
+
+        <!-- WIDOK 2: SALKI -->
+        <div id="widok-salki" class="hidden max-w-7xl mx-auto p-2.5 sm:p-4 mt-1 flex-grow w-full flex-col gap-4 sm:gap-5">
+            <div class="glass-panel p-3.5 sm:p-5 flex flex-col justify-between items-start gap-3.5 border-b-2 border-b-indigo-500/30">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center w-full gap-3">
+                    <div class="flex gap-2 overflow-x-auto no-scrollbar w-full md:w-auto pb-0.5" id="filtry-sal-kontener">
+                        <button onclick="ustawFiltr('wszystkie')" id="btn-wszystkie" class="filtr-btn active">Wszystkie</button>
+                        <button onclick="ustawFiltr('wolne')" id="btn-wolne" class="filtr-btn">Tylko wolne</button>
+                        <button onclick="ustawFiltr('fortepian')" id="btn-fortepian" class="filtr-btn">Z fortepianem</button>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 bg-zinc-950/70 p-1.5 rounded-xl border border-white/10 shrink-0 w-full md:w-auto justify-center">
+                        <button onclick="zmienWizualizacje('klasyczna')" id="btn-wiz-klasyczna" class="px-4 py-2 rounded-lg text-xs font-bold bg-white/10 text-white transition-all w-1/2 md:w-auto text-center">Widok Bloków</button>
+                        <button onclick="zmienWizualizacje('fizyczna')" id="btn-wiz-fizyczna" class="px-4 py-2 rounded-lg text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/5 transition-all w-1/2 md:w-auto text-center">Prawdziwa Tablica</button>
+                    </div>
+                </div>
+
                 <div class="flex flex-wrap items-center gap-2.5 text-xs font-semibold">
                     <span class="emblem emblem-emerald"><span class="status-dot dot-emerald"></span>Wolna</span>
                     <span class="emblem emblem-rose"><span class="status-dot dot-rose"></span>Zajęta</span>
                     <span class="emblem emblem-purple"><span class="status-dot dot-purple"></span>Blokada</span>
-                </div>
-            </div>
-
-            <div id="sekcja-ulubione" class="hidden glass-panel p-4 sm:p-6 border-amber-400/30">
-                <div class="flex items-center gap-2 mb-3.5">
-                    <span class="emblem emblem-gold">Ulubione sale</span>
-                </div>
-                <div id="grid-ulubione" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-3"></div>
-            </div>
-
-            <div class="flex flex-col gap-4 sm:gap-5">
-                <div class="glass-panel p-4 sm:p-6">
-                    <div class="flex items-center gap-2 mb-3.5">
-                        <span class="emblem emblem-rose">II stopień</span>
+                    <div class="flex items-center gap-1 ml-1 text-slate-300">
+                        <span class="w-2 h-2 rounded-full bg-white inline-block shadow-md ml-1.5 mr-0.5"></span> Pracownik szkoły
                     </div>
+                </div>
+            </div>
+
+            <div id="kontener-klasyczny" class="flex flex-col gap-4 sm:gap-5">
+                <div id="sekcja-ulubione" class="hidden glass-panel p-4 sm:p-6 mb-2 border-amber-400/30 w-full">
+                    <div class="mb-3.5 block w-full"><span class="emblem emblem-gold inline-block">Ulubione sale</span></div>
+                    <div id="grid-ulubione" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-3 w-full"></div>
+                </div>
+                <div class="glass-panel p-4 sm:p-6">
+                    <div class="flex items-center gap-2 mb-3.5"><span class="emblem emblem-rose">II stopień</span></div>
                     <div id="grid-IIst" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-3"></div>
                 </div>
                 <div class="glass-panel p-4 sm:p-6">
-                    <div class="flex items-center gap-2 mb-3.5">
-                        <span class="emblem emblem-emerald">I stopień</span>
-                    </div>
+                    <div class="flex items-center gap-2 mb-3.5"><span class="emblem emblem-emerald">I stopień</span></div>
                     <div id="grid-Ist" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-3"></div>
                 </div>
                 <div class="glass-panel p-4 sm:p-6">
-                    <div class="flex items-center gap-2 mb-3.5">
-                        <span class="emblem emblem-cyan">Sale jazzowe</span>
-                    </div>
+                    <div class="flex items-center gap-2 mb-3.5"><span class="emblem emblem-indigo">Sale jazzowe</span></div>
                     <div id="grid-jazz" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2 sm:gap-3"></div>
                 </div>
                 <div class="glass-panel p-4 sm:p-6">
-                    <div class="flex items-center gap-2 mb-3.5">
-                        <span class="emblem emblem-amber">Inne</span>
-                    </div>
+                    <div class="flex items-center gap-2 mb-3.5"><span class="emblem emblem-amber">Inne</span></div>
                     <div id="grid-inne" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3"></div>
                 </div>
             </div>
+
+            <div id="kontener-fizyczny" class="hidden glass-panel p-2 sm:p-4 overflow-x-auto w-full no-scrollbar border-indigo-500/25 border-2 relative">
+                <div id="grid-fizyczny" class="grid gap-1.5 pb-2 mx-auto" style="grid-template-columns: repeat(20, minmax(42px, 1fr)); min-width: 980px;"></div>
+            </div>
         </div>
 
-        <!-- WIDOK 2: GŁOSOWANIA -->
-        <div id="widok-glosowania" class="hidden max-w-4xl mx-auto p-2.5 sm:p-4 mt-1 flex-grow w-full flex-col gap-4 animate-fade-in">
+        <!-- WIDOK 3: GŁOSOWANIA -->
+        <div id="widok-glosowania" class="hidden max-w-4xl mx-auto p-2.5 sm:p-4 mt-1 flex-grow w-full flex-col gap-4">
             <div id="lista-ankiet-uczen" class="flex flex-col gap-4"></div>
         </div>
 
-        <!-- WIDOK 3: PROPOZYCJE -->
-        <div id="widok-propozycje" class="hidden max-w-4xl mx-auto p-2.5 sm:p-4 mt-1 flex-grow w-full flex-col gap-4 sm:gap-5 animate-fade-in">
-            <div class="glass-panel p-5 sm:p-7 relative overflow-hidden">
-                <div class="flex items-center justify-between mb-4">
-                    <span class="emblem emblem-cyan">Nowa propozycja</span>
-                </div>
-                <div class="flex flex-col gap-3.5">
-                    <input type="text" id="prop-tytul" placeholder="Tytuł propozycji" class="input-modern w-full rounded-xl px-4 py-3">
-                    <textarea id="prop-opis" rows="3" placeholder="Treść propozycji" class="input-modern w-full rounded-xl p-4 resize-none"></textarea>
-                    
-                    <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 pt-2">
-                        <label class="toggle-switch-wrap">
-                            <input type="checkbox" id="prop-anonim" class="sr-only">
-                            <span class="toggle-slider"></span>
-                            <span class="text-xs sm:text-sm font-semibold text-slate-200">Opublikuj anonimowo</span>
-                        </label>
-                        <button onclick="dodajPropozycje()" class="btn-primary-gradient w-full sm:w-auto px-7 py-3.5 rounded-xl font-bold text-xs sm:text-sm">Opublikuj</button>
-                    </div>
-                </div>
+        <!-- WIDOK 4: PROPOZYCJE -->
+        <div id="widok-propozycje" class="hidden max-w-4xl mx-auto p-2.5 sm:p-4 mt-1 flex-grow w-full flex-col gap-4">
+            <div class="glass-panel p-4 sm:p-5 flex justify-between items-center">
+                <span class="emblem emblem-indigo">Propozycje Uczniów</span>
+                <button onclick="otworzModalNowejPropozycji()" class="btn-classic-primary w-10 h-10 rounded-xl font-bold text-xl flex items-center justify-center leading-none shadow-lg" title="Dodaj propozycję">+</button>
             </div>
-
             <div id="lista-propozycji-uczen" class="flex flex-col gap-4"></div>
         </div>
 
-    </div>
-
-    <!-- MODAL 1: KOD QR -->
-    <div id="modal-qr" class="fixed inset-0 modal-overlay hidden items-center justify-center z-50 p-4">
-        <div class="glass-panel p-6 sm:p-7 w-full max-w-xs text-center relative animate-scale-in">
-            <button onclick="zamknijModalQR()" class="absolute top-3.5 right-4 text-slate-400 hover:text-white text-2xl leading-none p-1">&times;</button>
-            <span class="emblem emblem-cyan mb-2">Karta Autoryzacji</span>
-            <h3 id="qr-imie" class="text-lg font-extrabold text-white mt-1">-</h3>
-            <p id="qr-szczegoly" class="text-xs text-slate-300 mb-5">-</p>
-
-            <div class="bg-white p-4 rounded-2xl inline-block mx-auto mb-4 shadow-xl">
-                <div id="qrcode-box"></div>
+        <!-- WIDOK 5: PANEL ZARZĄDZANIA SAMORZĄDU -->
+        <div id="widok-panel-samorzadu" class="hidden max-w-5xl mx-auto p-2.5 sm:p-4 mt-1 flex-grow w-full flex-col gap-6">
+            <div class="glass-panel p-5 sm:p-6 border-t-2 border-t-indigo-400">
+                <span class="emblem emblem-indigo mb-2">Głosowania</span>
+                <h2 class="text-xl font-bold text-white mb-4">Utwórz nową ankietę</h2>
+                <div class="flex flex-col gap-3">
+                    <input type="text" id="nowa-ankieta-tytul" placeholder="Tytuł ankiety..." class="input-classic w-full rounded-xl px-4 py-3">
+                    <textarea id="nowa-ankieta-opis" placeholder="Opis (opcjonalnie)..." class="input-classic w-full rounded-xl px-4 py-3 resize-none"></textarea>
+                    <input type="text" id="nowa-ankieta-opcje" placeholder="Opcje (np. Tak, Nie, Wstrzymuję się)..." class="input-classic w-full rounded-xl px-4 py-3">
+                    <button type="button" onclick="dodajAnkieteSamorzad()" class="btn-classic-primary w-full py-3.5 rounded-xl font-bold text-sm">Opublikuj ankietę</button>
+                </div>
+                <div id="lista-ankiet-zarzadzanie" class="flex flex-col gap-3 mt-6 max-h-[400px] overflow-y-auto no-scrollbar border-t border-white/10 pt-4"></div>
             </div>
 
-            <div class="bg-slate-950/80 border border-white/10 rounded-xl py-2.5 px-4">
-                <span id="qr-uid-tekst" class="text-xl font-mono font-extrabold tracking-widest text-teal-300">--------</span>
+            <div class="glass-panel p-5 sm:p-6 border-t-2 border-t-amber-400">
+                <span class="emblem emblem-amber mb-2">Propozycje Uczniów</span>
+                <h2 class="text-xl font-bold text-white mb-4">Moderacja, głosy i odpowiedzi</h2>
+                <div id="lista-propozycji-zarzadzanie" class="flex flex-col gap-4 max-h-[600px] overflow-y-auto no-scrollbar"></div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL 2: OPCJE SALI -->
+    <!-- MODAL OPCJI SALI -->
     <div id="modal-sala-uczen" class="fixed inset-0 modal-overlay hidden items-center justify-center z-50 p-4">
         <div class="glass-panel p-6 sm:p-7 w-full max-w-md relative animate-scale-in max-h-[90vh] overflow-y-auto">
-            <button onclick="zamknijModalSali()" class="absolute top-3.5 right-4 text-slate-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            <button onclick="zamknijModalSali()" class="absolute top-3.5 right-4 text-zinc-400 hover:text-white text-2xl leading-none p-1">&times;</button>
             <div class="flex items-center gap-3 mb-4">
-                <h3 class="text-xl font-extrabold text-white">Sala <span id="akcja-sala-nr" class="text-teal-300"></span></h3>
+                <h3 class="text-xl font-bold text-white">Sala <span id="akcja-sala-nr" class="text-indigo-400"></span></h3>
                 <div id="akcja-sala-status"></div>
             </div>
-
+            <div id="akcja-sala-znajomy-box" class="hidden mb-4 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/25 items-center gap-3"></div>
             <button id="btn-toggle-ulubiona" onclick="przelaczUlubionaSale()" class="w-full mb-5 py-3.5 rounded-xl font-bold text-xs sm:text-sm border transition-all"></button>
-
             <div class="border-t border-white/10 pt-4">
-                <label class="block text-[11px] font-bold text-slate-300 uppercase tracking-wider mb-2">Zgłoś usterkę</label>
-                <textarea id="opis-usterki-input" rows="2" placeholder="Opis usterki..." class="input-modern w-full rounded-xl p-3.5 resize-none mb-3"></textarea>
-                <button onclick="wyslijZgloszenieUsterki()" class="btn-secondary-glass w-full py-3.5 rounded-xl font-bold text-xs sm:text-sm">Wyślij zgłoszenie</button>
-                <p id="potwierdzenie-usterki" class="hidden text-emerald-400 text-xs font-semibold text-center mt-2.5">Zgłoszenie zostało wysłane.</p>
+                <label class="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Zgłoś usterkę</label>
+                <textarea id="opis-usterki-input" rows="2" class="input-classic bg-[#0f0f14] text-white w-full rounded-xl p-3.5 resize-none mb-3"></textarea>
+                <button onclick="wyslijZgloszenieUsterki()" class="btn-classic-secondary w-full py-3.5 rounded-xl font-bold text-xs sm:text-sm">Wyślij zgłoszenie</button>
             </div>
         </div>
+    </div>
+
+    <!-- MODAL DODAWANIA PROPOZYCJI -->
+    <div id="modal-nowa-propozycja" class="fixed inset-0 modal-overlay hidden items-center justify-center z-50 p-4">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-lg relative animate-scale-in">
+            <button onclick="zamknijModalNowejPropozycji()" class="absolute top-3.5 right-4 text-zinc-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            <span class="emblem emblem-indigo mb-3">Nowa propozycja</span>
+            <div class="flex flex-col gap-3.5 mt-2">
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Tytuł</label>
+                    <input type="text" id="prop-tytul" class="input-classic bg-[#0f0f14] text-white mt-1 w-full rounded-xl px-4 py-3">
+                </div>
+                <div>
+                    <label class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Treść</label>
+                    <textarea id="prop-opis" rows="4" class="input-classic bg-[#0f0f14] text-white mt-1 w-full rounded-xl p-4 resize-none"></textarea>
+                </div>
+                <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 pt-2">
+                    <label class="toggle-switch-wrap">
+                        <input type="checkbox" id="prop-anonim" class="sr-only">
+                        <span class="toggle-slider"></span>
+                        <span class="text-xs sm:text-sm font-semibold text-zinc-200">Opublikuj anonimowo</span>
+                    </label>
+                    <button onclick="dodajPropozycje()" class="btn-classic-primary w-full sm:w-auto px-7 py-3.5 rounded-xl font-bold text-xs sm:text-sm">Opublikuj</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL SKANERA QR -->
+    <div id="modal-qr-skaner" class="fixed inset-0 modal-overlay hidden items-center justify-center z-50 p-4 bg-black/90 backdrop-blur-sm">
+        <div class="w-full max-w-md relative flex flex-col items-center animate-scale-in">
+            <button onclick="zamknijSkanerQR()" class="absolute -top-12 right-0 text-zinc-400 hover:text-white text-3xl font-bold leading-none p-2 z-10">&times;</button>
+            <span class="emblem emblem-indigo mb-4 block w-full text-center">Zeskanuj kod znajomego</span>
+            
+            <div class="w-full bg-black rounded-3xl overflow-hidden mb-4 border-2 border-indigo-500/50 shadow-[0_0_30px_rgba(99,102,241,0.2)] relative aspect-square">
+                <div id="qr-reader" class="w-full h-full object-cover"></div>
+                <span class="text-xs font-bold text-zinc-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">Oczekiwanie na aparat...</span>
+            </div>
+            
+            <p class="text-xs text-zinc-400 text-center px-4 leading-relaxed">System automatycznie odczyta kod z ekranu znajomego.</p>
+        </div>
+    </div>
+
+    <!-- NAKŁADKA "WRAPPED" -->
+    <div id="wrapped-overlay" class="fixed inset-0 z-[100] bg-black hidden flex-col transition-opacity duration-300">
+        <div id="wrapped-progress" class="flex gap-1 p-3 absolute top-0 left-0 right-0 z-40"></div>
+        <button onclick="zamknijWrapped()" class="absolute top-6 right-4 text-white/50 hover:text-white text-2xl font-bold z-40 p-2">&times;</button>
+        <div id="wrapped-touch-left" class="absolute inset-y-12 left-0 w-1/3 z-30" onclick="wrappedPoprzedni()"></div>
+        <div id="wrapped-touch-right" class="absolute inset-y-12 right-0 w-2/3 z-30" onclick="wrappedNastepny()"></div>
+        <div id="wrapped-cards" class="relative w-full h-full flex items-center justify-center overflow-hidden z-10"></div>
     </div>
 
     <script src="script.js"></script>

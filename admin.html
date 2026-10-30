@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Admin POSM">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Centrum Dowodzenia — POSM</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="logo-192.png">
+    <script>
+        if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js'); }); }
+    </script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <link rel="stylesheet" href="admin.css">
+    <style>
+        input.input-modern, textarea.input-modern, select.input-modern { background-color: #0f0f14 !important; color: #ffffff !important; caret-color: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.16) !important; color-scheme: dark; }
+        input.input-modern:-webkit-autofill, input.input-modern:-webkit-autofill:hover, input.input-modern:-webkit-autofill:focus, input.input-modern:-webkit-autofill:active { -webkit-box-shadow: 0 0 0 1000px #0f0f14 inset !important; -webkit-text-fill-color: #ffffff !important; caret-color: #ffffff !important; transition: background-color 5000s ease-in-out 0s; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-2 sm:p-4 pt-[env(safe-area-inset-top)] relative bg-[#090e16] overflow-x-hidden">
+
+    <div id="ekran-ladowania" class="fixed inset-0 z-[100] bg-[#090e16] flex flex-col items-center justify-center transition-opacity duration-300">
+        <div class="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+        <p class="text-xs font-bold text-slate-400 tracking-widest uppercase">Autoryzacja...</p>
+    </div>
+
+    <div id="ekran-logowania" class="hidden flex-col items-center justify-center w-full max-w-md mx-auto min-h-[90vh] relative pt-8">
+        <a href="https://muzycznanasolnej.pl/" class="absolute top-4 left-4 flex items-center justify-center p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors text-slate-400 hover:text-white z-50" title="Powrót do strony szkoły">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 sm:mr-1.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" /></svg>
+            <span class="text-xs font-bold hidden sm:block">Szkoła</span>
+        </a>
+
+        <div class="glass-panel p-6 sm:p-9 text-center relative overflow-hidden mx-2 sm:mx-0 w-full mt-4">
+            <div class="w-16 h-16 rounded-2xl bg-white border border-white/15 flex items-center justify-center overflow-hidden mx-auto mb-4 shadow-md">
+                <img src="logo.png" alt="Logo" class="w-full h-full object-cover scale-125" onerror="this.style.display='none'">
+            </div>
+            <h1 class="text-xl sm:text-2xl font-extrabold mb-1 tracking-tight text-white">Panel Dyrekcji</h1>
+            <div class="flex justify-center gap-2 mb-6 mt-2">
+                <span class="emblem emblem-emerald">Centrum Dowodzenia POSM</span>
+            </div>
+            <input type="password" id="pole-hasla" class="input-modern w-full rounded-xl px-4 py-3.5 mb-4 text-center tracking-widest">
+            <p id="komunikat-bledu" class="text-rose-400 text-xs mb-4 hidden font-semibold">Nieprawidłowe hasło dostępu.</p>
+            <button onclick="zaloguj()" class="btn-primary-gradient w-full font-bold py-3.5 rounded-xl text-sm">Odblokuj Panel</button>
+        </div>
+    </div>
+
+    <!-- MODAL HISTORIA SALI -->
+    <div id="modal-historia" class="fixed inset-0 modal-overlay hidden items-center justify-center z-50 p-4">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-md relative flex flex-col max-h-[88vh]">
+            <button onclick="zamknijHistorieSali()" class="absolute top-3.5 right-4 text-slate-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            <h2 class="text-xl font-extrabold text-white mb-3">Sala <span id="modal-sala-nr" class="text-blue-400"></span></h2>
+            <div id="modal-obecny-stan" class="mb-3 p-3.5 rounded-xl bg-slate-950/70 border border-white/10 text-xs"></div>
+            <div id="modal-usterki-sali" class="mb-3 hidden flex-col gap-2"></div>
+            <div id="modal-panel-blokady" class="mb-4 p-3.5 rounded-xl bg-slate-950/50 border border-white/10"></div>
+            <p class="text-[11px] text-slate-400 mb-2 font-bold uppercase tracking-wider">Historia z dzisiaj</p>
+            <div id="modal-historia-lista" class="flex-grow overflow-y-auto pr-1 flex flex-col gap-2 no-scrollbar"></div>
+        </div>
+    </div>
+
+    <!-- MODAL EDYCJA UCZNIA -->
+    <div id="modal-edycja-ucznia" class="fixed inset-0 modal-overlay hidden items-center justify-center z-50 p-4">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-md relative flex flex-col gap-4 max-h-[95vh] overflow-y-auto">
+            <button onclick="zamknijModalEdycjiUcznia()" class="absolute top-3.5 right-4 text-slate-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            <div><span class="emblem emblem-blue mb-1.5">Edycja konta</span><h3 class="text-lg font-extrabold text-white">Dane i uprawnienia</h3></div>
+            <input type="hidden" id="edit-uczen-uid">
+            <div class="flex flex-col gap-3">
+                <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Imię i Nazwisko</label><input type="text" id="edit-uczen-imie" class="input-modern w-full rounded-xl px-3.5 py-2.5"></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Klasa</label>
+                        <input type="text" id="edit-uczen-klasa" class="input-modern w-full rounded-xl px-3.5 py-2.5" placeholder="np. 3A">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Rola w systemie</label>
+                        <select id="edit-uczen-rola" class="input-modern w-full rounded-xl px-3.5 py-2.5 cursor-pointer">
+                            <option value="uczen">Uczeń</option>
+                            <option value="samorzad">Samorząd</option>
+                            <option value="nauczyciel">Nauczyciel</option>
+                            <option value="administracja">Administracja</option>
+                            <option value="obsluga">Obsługa</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mt-1">
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Instr. główny</label><input type="text" id="edit-uczen-inst1" class="input-modern w-full rounded-xl px-3.5 py-2.5"></div>
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Drugi inst. (opcj.)</label><input type="text" id="edit-uczen-inst2" class="input-modern w-full rounded-xl px-3.5 py-2.5"></div>
+                </div>
+                <div class="flex flex-col gap-2 mt-1">
+                    <label class="flex items-center gap-2.5 cursor-pointer select-none bg-slate-950/60 p-3 rounded-xl border border-white/10 hover:bg-slate-900 transition-colors">
+                        <input type="checkbox" id="edit-uczen-jazz" class="w-4 h-4 accent-blue-500 rounded">
+                        <span class="text-xs font-semibold text-slate-200">Uprawnienia do sal jazzowych (01–08)</span>
+                    </label>
+                </div>
+            </div>
+            <div class="flex gap-2 pt-2"><button onclick="zapiszEdycjeUcznia()" class="btn-primary-gradient flex-1 py-3 rounded-xl font-bold text-xs sm:text-sm">Zapisz</button><button onclick="zamknijModalEdycjiUcznia()" class="btn-secondary-glass px-5 py-3 rounded-xl font-bold text-xs sm:text-sm">Anuluj</button></div>
+        </div>
+    </div>
+    
+    <!-- MODAL EDYCJA ZGODY UCZNIA -->
+    <div id="modal-edycja-zgody-uczen" class="fixed inset-0 modal-overlay hidden items-center justify-center z-50 p-4">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-md relative flex flex-col gap-4 animate-scale-in">
+            <button onclick="ukryjEkran('modal-edycja-zgody-uczen')" class="absolute top-3 right-4 text-slate-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            <div><span class="emblem emblem-emerald mb-1.5">Edycja Zgody</span><h3 class="text-lg font-extrabold text-white" id="edit-zu-imie">Jan Kowalski</h3></div>
+            <input type="hidden" id="edit-zu-id">
+            <div class="flex flex-col gap-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Godz. Sobota</label>
+                        <div class="flex gap-1 items-center"><input type="time" id="edit-zu-sob-od" class="input-modern w-full rounded-lg px-2 py-2 text-xs"><span class="text-slate-400">-</span><input type="time" id="edit-zu-sob-do" class="input-modern w-full rounded-lg px-2 py-2 text-xs"></div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Godz. Niedziela</label>
+                        <div class="flex gap-1 items-center"><input type="time" id="edit-zu-ndz-od" class="input-modern w-full rounded-lg px-2 py-2 text-xs"><span class="text-slate-400">-</span><input type="time" id="edit-zu-ndz-do" class="input-modern w-full rounded-lg px-2 py-2 text-xs"></div>
+                    </div>
+                </div>
+                <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Uwagi</label><input type="text" id="edit-zu-kom" class="input-modern w-full rounded-xl px-3.5 py-2.5 text-xs"></div>
+                <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Wystawił(a) (Podpis)</label><input type="text" id="edit-zu-wystawil" class="input-modern w-full rounded-xl px-3.5 py-2.5 text-xs"></div>
+                <div class="flex gap-2 pt-2"><button onclick="zapiszEdycjeZgodyUcznia()" class="btn-primary-gradient flex-1 py-3 rounded-xl font-bold text-xs sm:text-sm">Zapisz Zmiany</button><button onclick="ukryjEkran('modal-edycja-zgody-uczen')" class="btn-secondary-glass px-5 py-3 rounded-xl font-bold text-xs sm:text-sm">Anuluj</button></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAL EDYCJA GOSCIA/WYDARZENIA -->
+    <div id="modal-edycja-goscia" class="fixed inset-0 modal-overlay hidden items-center justify-center z-50 p-4">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-md relative flex flex-col gap-4 animate-scale-in">
+            <button onclick="ukryjEkran('modal-edycja-goscia')" class="absolute top-3 right-4 text-slate-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+            <div><span class="emblem emblem-amber mb-1.5">Edycja Zgłoszenia</span><h3 class="text-lg font-extrabold text-white">Gość / Wydarzenie</h3></div>
+            <input type="hidden" id="edit-gosc-id">
+            <div class="flex flex-col gap-3">
+                <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Wydarzenie / Gość</label><input type="text" id="edit-gosc-imie" class="input-modern w-full rounded-xl px-3.5 py-2.5 text-xs font-bold"></div>
+                
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Data Od</label><input type="date" id="edit-gosc-od" class="date-input w-full px-3 py-2 text-xs"></div>
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Data Do</label><input type="date" id="edit-gosc-do" class="date-input w-full px-3 py-2 text-xs"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Godz Od</label><input type="time" id="edit-gosc-godz-od" class="date-input w-full px-3 py-2 text-xs"></div>
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Godz Do</label><input type="time" id="edit-gosc-godz-do" class="date-input w-full px-3 py-2 text-xs"></div>
+                </div>
+                
+                <div class="flex gap-2">
+                    <div class="w-1/2"><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Osoba odp.</label><input type="text" id="edit-gosc-osoba" class="input-modern w-full rounded-xl px-3 py-2 text-xs"></div>
+                    <div class="w-1/2"><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Telefon</label><input type="text" id="edit-gosc-tel" class="input-modern w-full rounded-xl px-3 py-2 text-xs"></div>
+                </div>
+                
+                <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Dozwolone sale</label><input type="text" id="edit-gosc-sale" class="input-modern w-full rounded-xl px-3.5 py-2.5 text-xs text-amber-300"></div>
+                <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Uwagi dodatkowe</label><input type="text" id="edit-gosc-komentarz" class="input-modern w-full rounded-xl px-3.5 py-2.5 text-xs"></div>
+                <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Wystawił(a) (Podpis)</label><input type="text" id="edit-gosc-wystawil" class="input-modern w-full rounded-xl px-3.5 py-2.5 text-xs text-blue-300"></div>
+                
+                <div class="flex gap-2 pt-2"><button onclick="zapiszEdycjeGoscia()" class="btn-primary-gradient flex-1 py-3 rounded-xl font-bold text-xs sm:text-sm">Zapisz Zmiany</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EKRAN GŁÓWNY (DASHBOARD) -->
+    <div id="ekran-dashboardu" class="hidden w-full max-w-[1400px] flex-col gap-4 sm:gap-5 pb-8 mx-auto mt-4 sm:mt-5">
+        <nav class="glass-panel px-4 sm:px-6 py-3.5 sm:py-4 flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-0">
+            <div class="flex w-full justify-between items-center sm:w-auto gap-2">
+                <div class="flex items-center gap-3 min-w-0">
+                    <a href="https://muzycznanasolnej.pl/" class="flex items-center justify-center w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors shrink-0 text-slate-300 hover:text-white" title="Powrót na stronę szkoły">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" /></svg>
+                    </a>
+                    <div class="w-10 h-10 rounded-xl bg-white border border-white/15 flex items-center justify-center overflow-hidden shrink-0 shadow-md">
+                        <img src="logo.png" alt="Logo" class="w-full h-full object-cover scale-125" onerror="this.style.display='none'">
+                    </div>
+                    <div class="truncate">
+                        <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-white leading-tight truncate">Centrum Dowodzenia</h1>
+                        <span class="emblem emblem-emerald mt-0.5">Dyrekcja POSM</span>
+                    </div>
+                </div>
+                <button onclick="wyloguj()" class="sm:hidden btn-secondary-glass px-3 py-1.5 rounded-xl text-xs font-bold shrink-0">Wyloguj</button>
+            </div>
+            
+            <div id="pasek-zakladek-admin" class="flex gap-1.5 overflow-x-auto no-scrollbar w-full sm:w-auto pb-1 items-center justify-start sm:justify-center bg-slate-950/70 p-1.5 rounded-2xl border border-white/10">
+                <button onclick="zmienZakladke('statystyki')" id="btn-tab-statystyki" class="tab-btn shrink-0 active">Analityka</button>
+                <button onclick="zmienZakladke('podglad')" id="btn-tab-podglad" class="tab-btn shrink-0 flex items-center gap-1.5"><span>Stan Sal</span><span id="badge-usterki-nav" class="hidden bg-amber-400 text-slate-950 text-[10px] font-extrabold px-2 py-0.5 rounded-full">0</span></button>
+                <button onclick="zmienZakladke('zgody')" id="btn-tab-zgody" class="tab-btn shrink-0 flex items-center gap-1.5"><span>Zgody i Wydarzenia</span><span id="badge-zgody-nav" class="hidden bg-emerald-400 text-slate-950 text-[10px] font-extrabold px-2 py-0.5 rounded-full">0</span></button>
+                <button onclick="zmienZakladke('logi')" id="btn-tab-logi" class="tab-btn shrink-0">Zeszyt</button>
+                <button onclick="zmienZakladke('narzedzia')" id="btn-tab-narzedzia" class="tab-btn shrink-0">Narzędzia i Konta</button>
+            </div>
+            <button onclick="wyloguj()" class="hidden sm:block btn-secondary-glass px-4 py-2 rounded-xl text-xs font-bold">Wyloguj</button>
+        </nav>
+
+        <div id="zakladka-statystyki" class="flex flex-col gap-4 sm:gap-5 w-full">
+            <div class="glass-panel px-4 sm:px-6 py-3.5 flex items-center gap-2.5 overflow-x-auto no-scrollbar">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Okres:</span>
+                <button onclick="ustawTrybFiltru('last7')" id="btn-last7" class="filtr-btn active shrink-0">Ostatnie 7 dni</button>
+                <button onclick="ustawTrybFiltru('day')" id="btn-day" class="filtr-btn shrink-0">Dzień</button>
+                <button onclick="ustawTrybFiltru('week')" id="btn-week" class="filtr-btn shrink-0">Tydzień</button>
+                <button onclick="ustawTrybFiltru('month')" id="btn-month" class="filtr-btn shrink-0">Miesiąc</button>
+                <button onclick="ustawTrybFiltru('range')" id="btn-range" class="filtr-btn shrink-0 mr-4">Zakres</button>
+                
+                <div class="flex flex-wrap items-center gap-2 ml-auto shrink-0">
+                    <input type="date" id="in-day" onchange="zastosujFiltry()" class="date-input hidden">
+                    <input type="week" id="in-week" onchange="zastosujFiltry()" class="date-input hidden">
+                    <input type="month" id="in-month" onchange="zastosujFiltry()" class="date-input hidden">
+                    <div id="in-range" class="hidden items-center gap-2 flex-wrap">
+                        <span class="text-xs text-slate-400">Od:</span><input type="date" id="range-start" onchange="zastosujFiltry()" class="date-input text-xs">
+                        <span class="text-xs text-slate-400">Do:</span><input type="date" id="range-end" onchange="zastosujFiltry()" class="date-input text-xs">
+                    </div>
+                </div>
+            </div>
+
+            <div id="kontener-danych" class="flex flex-col gap-4 sm:gap-5">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+                    <div class="glass-panel p-4 border-t-2 border-t-emerald-400 flex flex-col items-center justify-center text-center"><span class="emblem emblem-emerald mb-1.5">Top Sala</span><p id="info-ulubiona" class="text-xl font-extrabold text-white">-</p></div>
+                    <div class="glass-panel p-4 border-t-2 border-t-blue-400 flex flex-col items-center justify-center text-center"><span class="emblem emblem-blue mb-1.5">Średni Czas</span><p id="info-sredni-czas" class="text-xl font-extrabold text-white">-</p></div>
+                    <div class="glass-panel p-4 border-t-2 border-t-amber-400 flex flex-col items-center justify-center text-center"><span class="emblem emblem-amber mb-1.5">Szczyt</span><p id="info-godzina" class="text-xl font-extrabold text-white">-</p></div>
+                    <div class="glass-panel p-4 border-t-2 border-t-purple-400 flex flex-col items-center justify-center text-center"><span class="emblem emblem-purple mb-1.5">Top Dzień</span><p id="info-dzien" class="text-xl font-extrabold text-white">-</p></div>
+                    <div class="glass-panel p-4 border-t-2 border-t-rose-400 flex flex-col items-center justify-center text-center col-span-2 md:col-span-1"><span class="emblem emblem-rose mb-1.5">Suma Wydań</span><p id="info-suma" class="text-xl font-extrabold text-white">0</p></div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                    <div class="glass-panel p-4 sm:p-5 flex flex-col h-[320px] sm:h-[380px]">
+                        <div class="flex justify-between items-center mb-3"><span class="emblem emblem-emerald">Ranking Sal</span><div class="flex items-center gap-1.5"><button onclick="toggleRankingMode()" id="btn-ranking-mode" class="text-[10px] uppercase font-bold bg-white/10 text-blue-300 border border-white/15 px-2.5 py-1 rounded-lg mr-2">Najczęstsze</button><button onclick="zmienTyp(1, -1)" class="btn-wykres">&lsaquo;</button><span id="nazwa-typu-1" class="text-[10px] font-bold text-slate-300 uppercase w-16 text-center">Słupkowy</span><button onclick="zmienTyp(1, 1)" class="btn-wykres">&rsaquo;</button></div></div>
+                        <div class="relative flex-grow w-full bg-slate-950/60 rounded-xl p-2 border border-white/10"><canvas id="wykres1"></canvas></div>
+                    </div>
+                    <div class="glass-panel p-4 sm:p-5 flex flex-col h-[320px] sm:h-[380px]">
+                        <div class="flex justify-between items-center mb-3"><span class="emblem emblem-blue">Szczyty Aktywności</span><div class="flex items-center gap-1.5"><select id="granulacja-czasu" onchange="przeliczTylkoWykres2()" class="date-input text-[10px] mr-2"><option value="15" selected>15 min</option><option value="30">30 min</option><option value="60">1 godz</option></select><button onclick="zmienTyp(2, -1)" class="btn-wykres">&lsaquo;</button><span id="nazwa-typu-2" class="text-[10px] font-bold text-slate-300 uppercase w-16 text-center">Liniowy</span><button onclick="zmienTyp(2, 1)" class="btn-wykres">&rsaquo;</button></div></div>
+                        <div class="relative flex-grow w-full bg-slate-950/60 rounded-xl p-2 border border-white/10"><canvas id="wykres2"></canvas></div>
+                    </div>
+                    <div class="glass-panel p-4 sm:p-5 flex flex-col h-[320px] sm:h-[380px]">
+                        <div class="flex justify-between items-center mb-3"><span class="emblem emblem-amber">Ruch wg Dni</span><div class="flex items-center gap-1.5"><button onclick="zmienTyp(3, -1)" class="btn-wykres">&lsaquo;</button><span id="nazwa-typu-3" class="text-[10px] font-bold text-slate-300 uppercase w-16 text-center">Kołowy</span><button onclick="zmienTyp(3, 1)" class="btn-wykres">&rsaquo;</button></div></div>
+                        <div class="relative flex-grow w-full bg-slate-950/60 rounded-xl p-2 border border-white/10"><canvas id="wykres3"></canvas></div>
+                    </div>
+                    <div class="glass-panel p-4 sm:p-5 flex flex-col h-[320px] sm:h-[380px]">
+                        <div class="flex justify-between items-center mb-3"><span class="emblem emblem-rose">Czas Wypożyczenia</span><div class="flex items-center gap-1.5"><button onclick="zmienTyp(4, -1)" class="btn-wykres">&lsaquo;</button><span id="nazwa-typu-4" class="text-[10px] font-bold text-slate-300 uppercase w-16 text-center">Liniowy</span><button onclick="zmienTyp(4, 1)" class="btn-wykres">&rsaquo;</button></div></div>
+                        <div class="relative flex-grow w-full bg-slate-950/60 rounded-xl p-2 border border-white/10"><canvas id="wykres4"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-5 sm:p-6 flex flex-col">
+                    <div class="mb-4"><span class="emblem emblem-blue">Mapa Gęstości Ruchu</span></div>
+                    <div class="w-full flex flex-col pt-2 pb-4 px-2 sm:px-4 bg-slate-950/70 rounded-2xl border border-white/10 overflow-x-auto">
+                        <div id="heatmap-godziny" class="flex pl-16 sm:pl-28 mb-2 min-w-[500px]"></div>
+                        <div class="flex w-full relative min-w-[500px]">
+                            <div id="heatmap-dni" class="w-16 sm:w-28 flex flex-col justify-around text-[10px] sm:text-xs font-bold text-slate-400 border-r border-white/10 pr-2 sm:pr-4 py-2"></div>
+                            <div class="flex-grow relative overflow-hidden ml-2 h-[320px] sm:h-[440px] rounded-xl">
+                                <div id="heatmap-bg" class="absolute inset-0 grid" style="filter: blur(25px); transform: scale(1.15);"></div>
+                                <div id="heatmap-overlay" class="absolute inset-0 grid pointer-events-none"></div>
+                            </div>
+                            <div class="w-12 sm:w-16 flex flex-col items-center justify-between ml-2 sm:ml-4 py-4 border-l border-white/10 pl-2">
+                                <span class="text-[9px] font-bold text-rose-400 uppercase">Max</span>
+                                <div class="w-3.5 flex-grow rounded-full my-2" style="background: linear-gradient(to top, rgb(16,185,129) 0%, rgb(234,179,8) 35%, rgb(249,115,22) 60%, rgb(239,68,68) 85%, rgb(127,29,29) 100%);"></div>
+                                <span class="text-[9px] font-bold text-emerald-400 uppercase">Min</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="zakladka-podglad" class="hidden flex-col gap-4 sm:gap-5 w-full">
+            <div class="glass-panel p-4 sm:p-5 flex flex-col gap-4">
+                <div class="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4">
+                    <div class="flex-grow max-w-xl relative">
+                        <div class="flex items-center input-modern rounded-xl px-4 py-2.5">
+                            <input type="text" id="searchInput" oninput="szukajUcznia()" placeholder="Szukaj ucznia lub sali..." class="w-full bg-transparent text-white outline-none text-xs sm:text-sm min-w-[150px]">
+                            <button onclick="wyczyscSzukanie()" id="btn-clear-search" class="hidden text-blue-300 hover:text-white text-xs font-bold px-2 shrink-0">Wyczyść</button>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] sm:text-xs">
+                        <span class="emblem emblem-emerald"><span class="status-dot dot-emerald"></span>Wolne</span>
+                        <span class="emblem emblem-rose"><span class="status-dot dot-rose"></span>Zajęte</span>
+                        <span class="emblem emblem-purple"><span class="status-dot dot-purple"></span>Blokada</span>
+                        <span class="emblem emblem-amber">Usterka</span>
+                        <div class="flex items-center gap-1 ml-1 text-slate-300">
+                            <span class="w-2 h-2 rounded-full bg-white inline-block shadow-md ml-1.5 mr-0.5"></span> Pracownik szkoły
+                        </div>
+                    </div>
+                </div>
+                <div id="wynikiSzukania" class="hidden grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-3 border-t border-white/10"></div>
+            </div>
+
+            <div id="sekcja-usterek-live" class="hidden glass-panel p-4 sm:p-5 flex-col gap-3 border-amber-400/35">
+                <div><span class="emblem emblem-amber">Zgłoszone usterki (<span id="licznik-usterek">0</span>)</span></div>
+                <div id="lista-usterek-live" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+            </div>
+
+            <div id="live-container" class="glass-panel p-4 sm:p-6 flex flex-col gap-6 w-full"></div>
+        </div>
+
+        <div id="zakladka-zgody" class="hidden flex-col lg:flex-row gap-6 w-full items-start">
+            <div class="glass-panel p-5 sm:p-6 flex-1 flex flex-col gap-4 w-full border-t-2 border-t-emerald-400">
+                <div>
+                    <span class="emblem emblem-emerald mb-1">Zarządzanie Dostępem</span>
+                </div>
+                
+                <div class="flex gap-2 bg-slate-950/60 p-1.5 rounded-xl border border-white/10 mb-2">
+                    <button id="tab-btn-uczniowie" onclick="przelaczTabZgod('uczniowie')" class="flex-1 py-2 rounded-lg bg-emerald-500/20 text-emerald-300 text-xs font-bold transition-all">Uczniowie Szkoły</button>
+                    <button id="tab-btn-goscie" onclick="przelaczTabZgod('goscie')" class="flex-1 py-2 rounded-lg text-slate-400 hover:text-white text-xs font-bold transition-all">Goście i Wydarzenia</button>
+                </div>
+                
+                <!-- ZGODY UCZNIÓW -->
+                <div id="form-zgody-uczniowie" class="flex flex-col gap-4">
+                    <div class="bg-slate-950/60 p-3.5 rounded-2xl border border-white/10 flex flex-col gap-2.5">
+                        <div class="flex justify-between items-center gap-2 flex-wrap">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase">Wybierz uczniów (<span id="zgoda-licznik-wybranych" class="text-emerald-400">0</span>)</label>
+                            <div class="flex gap-1.5 flex-wrap">
+                                <button type="button" onclick="zaznaczWidocznychUczniowZgody()" class="btn-secondary-glass px-2.5 py-1 rounded-lg text-[10px] font-bold">Zaznacz widocznych</button>
+                                <button type="button" onclick="odznaczWszystkichUczniowZgody()" class="btn-secondary-glass px-2.5 py-1 rounded-lg text-[10px] font-bold">Odznacz wszystkich</button>
+                            </div>
+                        </div>
+                        <input type="text" id="zgoda-szukaj-ucznia" oninput="filtrujSelectUczniowZgody()" placeholder="Szukaj nazwiska, klasy..." class="input-modern w-full rounded-xl px-3.5 py-2 text-xs">
+                        <div id="zgoda-lista-uczniow" class="max-h-48 overflow-y-auto no-scrollbar flex flex-col divide-y divide-white/5 border border-white/5 rounded-xl bg-slate-950/80 p-1"></div>
+                    </div>
+                    <div id="zgoda-sekcja-prosta" class="flex flex-col gap-1.5">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase">Wybierz weekend</label>
+                        <select id="zgoda-prosty-weekend" class="input-modern w-full rounded-xl px-3.5 py-3 text-xs font-semibold"></select>
+                    </div>
+                    <div>
+                        <button type="button" onclick="przelaczZaawansowaneZgody()" id="btn-zgoda-zaawansowane" class="btn-secondary-glass w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 whitespace-normal text-center"><span>Zaawansowane (pojedyncze dni, godziny)</span></button>
+                    </div>
+                    <div id="zgoda-panel-zaawansowany" class="hidden flex-col gap-3.5 bg-slate-950/70 p-4 rounded-2xl border border-blue-500/25">
+                        <div>
+                            <label class="block text-[10px] font-bold text-blue-300 uppercase mb-1">Tryb terminu</label>
+                            <select id="zgoda-typ" onchange="przelaczTypZgodyUI()" class="input-modern w-full rounded-xl px-3.5 py-2.5 text-xs">
+                                <option value="weekend_lista">Cały wybrany weekend z listy powyżej</option>
+                                <option value="konkretny">Konkretna sobota lub niedziela (kalendarz)</option>
+                                <option value="miesiac">Wszystkie weekendy w wybranym miesiącu</option>
+                            </select>
+                        </div>
+                        <div id="zgoda-box-konkretny" class="hidden grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950/80 p-3 rounded-xl border border-white/10">
+                            <div><label class="block text-[10px] font-bold text-blue-300 uppercase mb-1">Tylko Sobota</label><input type="date" id="zgoda-data-sob" onchange="wymusDzienTygodnia(this, 6)" class="date-input w-full py-2"></div>
+                            <div><label class="block text-[10px] font-bold text-amber-300 uppercase mb-1">Tylko Niedziela</label><input type="date" id="zgoda-data-ndz" onchange="wymusDzienTygodnia(this, 0)" class="date-input w-full py-2"></div>
+                        </div>
+                        <div id="zgoda-box-miesiac" class="hidden grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950/80 p-3 rounded-xl border border-white/10">
+                            <div><label class="block text-[10px] font-bold text-emerald-300 uppercase mb-1">Miesiąc</label><input type="month" id="zgoda-miesiac" class="date-input w-full py-2"></div>
+                            <div><label class="block text-[10px] font-bold text-emerald-300 uppercase mb-1">Dni w miesiącu</label><select id="zgoda-dni-miesiaca" class="input-modern w-full rounded-xl px-3 py-2 text-xs"><option value="oba">Soboty i Niedziele</option><option value="sobota">Tylko Soboty</option><option value="niedziela">Tylko Niedziele</option></select></div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="bg-slate-950/80 p-3 rounded-xl border border-white/10"><span class="text-[10px] font-bold text-blue-300 uppercase block mb-1.5">Godziny w Sobotę</span><div class="flex items-center gap-1.5"><input type="time" id="zgoda-sob-od" value="17:00" class="date-input flex-1 min-w-0 px-1"><span class="text-xs text-slate-400">–</span><input type="time" id="zgoda-sob-do" value="19:00" class="date-input flex-1 min-w-0 px-1"></div></div>
+                            <div class="bg-slate-950/80 p-3 rounded-xl border border-white/10"><span class="text-[10px] font-bold text-amber-300 uppercase block mb-1.5">Godziny w Niedzielę</span><div class="flex items-center gap-1.5"><input type="time" id="zgoda-ndz-od" value="08:00" class="date-input flex-1 min-w-0 px-1"><span class="text-xs text-slate-400">–</span><input type="time" id="zgoda-ndz-do" value="19:00" class="date-input flex-1 min-w-0 px-1"></div></div>
+                        </div>
+                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Uwagi (opcjonalnie)</label><input type="text" id="zgoda-komentarz" class="input-modern w-full rounded-xl px-3.5 py-2 text-xs"></div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-emerald-400 uppercase mb-1">Wystawił(a) (Imię i Nazwisko)</label>
+                        <input type="text" id="zgoda-wystawil" class="input-modern w-full rounded-xl px-3.5 py-3 text-sm font-bold" placeholder="Twój Podpis">
+                    </div>
+                    <button type="button" onclick="dodajZgodeWeekendowa()" class="btn-primary-gradient w-full py-3.5 rounded-xl font-bold text-xs sm:text-sm">Wydaj zgodę wybranym osobom</button>
+                </div>
+                
+                <!-- ZGŁOSZENIA GOŚCI (Z DOZOWOLONYMI SALAMI I DOWOLNYMI DNIAMI) -->
+                <div id="form-zgody-goscie" class="hidden flex-col gap-4">
+                    <p class="text-xs text-slate-300 leading-relaxed">Zgłoszona tutaj osoba lub grupa automatycznie pojawi się w podpowiedziach na komputerze portierni w zaznaczonych dniach.</p>
+                    
+                    <div>
+                        <label class="block text-[10px] font-bold text-amber-300 uppercase mb-1.5">Wydarzenie / Grupa / Gość</label>
+                        <input type="text" id="gosc-imie" class="input-modern w-full rounded-xl px-3.5 py-2.5 text-sm font-bold" placeholder="np. Jan Kowalski, Próba Chóru, Stroiciel">
+                    </div>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950/50 p-3 rounded-xl border border-white/5">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Osoba odp. za klucze</label>
+                            <input type="text" id="gosc-osoba-odp" class="input-modern w-full rounded-xl px-3.5 py-2.5 text-xs" placeholder="np. Anna Nowak">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Telefon kontaktowy</label>
+                            <input type="text" id="gosc-telefon" class="input-modern w-full rounded-xl px-3.5 py-2.5 text-xs" placeholder="np. 123 456 789">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3 bg-slate-950/80 p-3 rounded-xl border border-white/10">
+                        <div><label class="block text-[10px] font-bold text-blue-300 uppercase mb-1.5">Data od (Dowolny dzień)</label><input type="date" id="gosc-data-od" class="date-input w-full py-2 px-2 text-xs"></div>
+                        <div><label class="block text-[10px] font-bold text-blue-300 uppercase mb-1.5">Data do (Dowolny dzień)</label><input type="date" id="gosc-data-do" class="date-input w-full py-2 px-2 text-xs"></div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3 bg-slate-950/80 p-3 rounded-xl border border-white/10">
+                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Godzina dostępu od</label><input type="time" id="gosc-godz-od" value="08:00" class="date-input w-full py-2 px-2 text-xs"></div>
+                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Godzina dostępu do</label><input type="time" id="gosc-godz-do" value="20:00" class="date-input w-full py-2 px-2 text-xs"></div>
+                    </div>
+                    
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Dozwolone Sale (opcjonalnie)</label><input type="text" id="gosc-sale-dozwolone" class="input-modern w-full rounded-xl px-3.5 py-2 text-xs" placeholder="np. 112, 113, Koncertowa"></div>
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Uwagi dodatkowe</label><input type="text" id="gosc-komentarz" class="input-modern w-full rounded-xl px-3.5 py-2 text-xs"></div>
+                    
+                    <div>
+                        <label class="block text-[10px] font-bold text-emerald-400 uppercase mb-1">Wystawił(a) (Imię i Nazwisko)</label>
+                        <input type="text" id="gosc-wystawil" class="input-modern w-full rounded-xl px-3.5 py-3 text-sm font-bold" placeholder="Twój Podpis">
+                    </div>
+                    
+                    <button type="button" onclick="dodajZgodeGoscia()" class="bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/50 w-full py-3.5 rounded-xl font-bold text-xs sm:text-sm transition-all mt-2">Zgłoś Autoryzację</button>
+                </div>
+            </div>
+
+            <div class="glass-panel p-5 sm:p-6 flex-[1.4] flex flex-col gap-6 w-full border-t-2 border-t-blue-400">
+                <div class="flex flex-col gap-3">
+                    <div class="flex justify-between items-center flex-wrap gap-2">
+                        <div><span class="emblem emblem-emerald mb-1">Uczniowie</span><h2 class="text-base font-extrabold text-white">Aktywne zgody weekendowe</h2></div>
+                        <button type="button" onclick="wyczyscWszystkieZgody()" class="bg-rose-500/15 hover:bg-rose-600 text-rose-300 hover:text-white font-bold px-3 py-1.5 rounded-xl text-xs transition-colors mt-2 sm:mt-0">Wyczyść listę</button>
+                    </div>
+                    <div id="lista-zgod-admin" class="flex flex-col gap-3 max-h-[400px] overflow-y-auto no-scrollbar pr-1"></div>
+                </div>
+                
+                <div class="flex flex-col gap-3 pt-4 border-t border-white/10">
+                    <div><span class="emblem emblem-amber mb-1">Z zewnątrz</span><h2 class="text-base font-extrabold text-white">Zgłoszone Grupy i Goście</h2></div>
+                    <div id="lista-zgod-goscie-admin" class="flex flex-col gap-3 max-h-[400px] overflow-y-auto no-scrollbar pr-1"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="zakladka-logi" class="hidden flex-col gap-4 sm:gap-6 w-full">
+            <div class="glass-panel p-4 sm:p-6 flex flex-col gap-4 w-full">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 flex-wrap">
+                    <span class="emblem emblem-blue">Wirtualny Zeszyt Operacji</span>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <div class="flex items-center gap-1.5 bg-slate-950/70 px-3 py-1.5 rounded-xl border border-white/10"><span class="text-xs text-slate-400">Od:</span><input type="date" id="zeszyt-od" onchange="this.dataset.zmieniono='1'; odswiezTabelaLogow(wszystkieLogi)" class="date-input text-xs"></div>
+                        <div class="flex items-center gap-1.5 bg-slate-950/70 px-3 py-1.5 rounded-xl border border-white/10"><span class="text-xs text-slate-400">Do:</span><input type="date" id="zeszyt-do" onchange="this.dataset.zmieniono='1'; odswiezTabelaLogow(wszystkieLogi)" class="date-input text-xs"></div>
+                        <button onclick="pobierzExcel()" class="btn-primary-gradient font-bold px-4 py-2 rounded-xl text-xs">Pobierz Excel</button>
+                        <button onclick="wyczyscZeszytLogow()" class="bg-rose-500/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 font-bold px-4 py-2 rounded-xl text-xs transition-colors">Wyczyść Zeszyt</button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto max-h-[550px] no-scrollbar rounded-2xl border border-white/10">
+                    <table class="min-w-full text-left text-xs">
+                        <thead class="bg-slate-950/90 text-blue-300 sticky top-0 z-10">
+                            <tr>
+                                <th class="py-3.5 px-4 whitespace-nowrap">Data i Czas</th>
+                                <th class="py-3.5 px-4">Sala</th>
+                                <th class="py-3.5 px-4">Akcja</th>
+                                <th class="py-3.5 px-4 whitespace-nowrap">Imię i Nazwisko</th>
+                                <th class="py-3.5 px-4">Klasa / Rola</th>
+                                <th class="py-3.5 px-4 min-w-[120px]">Instrument</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-logow" class="text-slate-100 divide-y divide-white/5"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="zakladka-narzedzia" class="hidden flex-col lg:flex-row gap-6 w-full items-start">
+            <div class="flex-1 flex flex-col gap-6 w-full">
+                <div class="glass-panel p-5 sm:p-6 flex flex-col gap-3.5 w-full border-emerald-400/30">
+                    <div><span class="emblem emblem-emerald">Dodaj Ręcznie do Bazy</span></div>
+                    <p class="text-xs text-slate-300 leading-relaxed">Utwórz konto dla ucznia, członka samorządu lub pracownika szkoły.</p>
+                    <input type="text" id="nowy-user-imie" placeholder="Imię i Nazwisko" class="input-modern w-full rounded-xl px-3.5 py-2.5 text-xs">
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" id="nowy-user-klasa" placeholder="Klasa (np. 3A)" class="input-modern w-full rounded-xl px-3.5 py-2.5 text-xs">
+                        <select id="nowy-user-rola" class="input-modern w-full rounded-xl px-3.5 py-2.5 text-xs cursor-pointer">
+                            <option value="uczen">Uczeń</option>
+                            <option value="samorzad">Samorząd</option>
+                            <option value="nauczyciel">Nauczyciel</option>
+                            <option value="administracja">Administracja</option>
+                            <option value="obsluga">Obsługa</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" id="nowy-user-inst1" placeholder="Instrument 1" class="input-modern w-full rounded-xl px-3.5 py-2.5 text-xs">
+                        <input type="text" id="nowy-user-inst2" placeholder="Instrument 2 (opcj.)" class="input-modern w-full rounded-xl px-3.5 py-2.5 text-xs">
+                    </div>
+                    <button type="button" onclick="dodajUzytkownikaAdmin()" class="btn-primary-gradient w-full py-3.5 rounded-xl font-bold text-xs sm:text-sm">Utwórz konto</button>
+                </div>
+
+                <div class="glass-panel p-5 sm:p-6 flex flex-col gap-3.5 w-full border-blue-400/30">
+                    <div><span class="emblem emblem-blue">Import Uczniów z Excela (.xlsx)</span></div>
+                    <p class="text-xs text-slate-300 leading-relaxed">Wgraj plik <code class="text-blue-300 font-bold">.xlsx</code> z kolumnami: <b>Imię i Nazwisko</b>, <b>Klasa</b>, <b>Instrument 1</b>, <b>Instrument 2</b>. <br><span class="text-[10px] text-amber-300 block mt-1">Wpisz "Nauczyciel", "Administracja" lub "Obsługa" w kolumnie Klasa, aby odpowiednio przydzielić role.</span></p>
+                    <input type="file" id="excel-import-input" accept=".xlsx" class="text-xs text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-500/20 file:text-blue-300 hover:file:bg-blue-500/30 cursor-pointer w-full">
+                    <button onclick="importujUczniowZExcela()" class="btn-primary-gradient w-full py-3 rounded-xl font-bold text-xs sm:text-sm">Wgraj plik i utwórz konta</button>
+                </div>
+
+                <div class="glass-panel p-5 sm:p-6 flex flex-col gap-4 w-full">
+                    <div><span class="emblem emblem-amber">Generator Raportów PDF</span></div>
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Miesiąc</label><input type="month" id="pdf-miesiac" class="w-full date-input py-2.5 px-3"></div>
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Sporządził(a)</label><input type="text" id="pdf-autor" class="input-modern w-full rounded-xl px-3.5 py-2.5"></div>
+                    <div><label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Uwagi</label><textarea id="pdf-komentarz" rows="2" class="input-modern w-full rounded-xl p-3.5 resize-none"></textarea></div>
+                    <button id="btn-generuj-pdf" onclick="generujPDF()" class="btn-primary-gradient mt-1 w-full font-bold py-3 rounded-xl text-xs sm:text-sm">Generuj PDF</button>
+                </div>
+            </div>
+
+            <div class="glass-panel p-5 sm:p-6 flex-[1.6] flex flex-col gap-4 w-full">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div><span class="emblem emblem-gold">Baza Kont Użytkowników</span></div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="synchronizujKontaUczniow()" class="btn-secondary-glass font-bold px-3.5 py-2 rounded-xl text-xs">Przebuduj loginy</button>
+                        <button onclick="pobierzListeLoginowExcel()" class="btn-primary-gradient font-bold px-3.5 py-2 rounded-xl text-xs">Pobierz Loginy (.xlsx)</button>
+                    </div>
+                </div>
+
+                <input type="text" id="filtr-kont-input" oninput="renderujTabeleKont()" placeholder="Szukaj ucznia, klasy, instrumentu lub loginu..." class="input-modern w-full rounded-xl px-3.5 py-2.5">
+
+                <div class="overflow-x-auto max-h-[750px] no-scrollbar rounded-2xl border border-white/10">
+                    <table class="min-w-full text-left text-xs">
+                        <thead class="bg-slate-950/90 text-blue-300 sticky top-0 z-10">
+                            <tr>
+                                <th class="py-3 px-3 whitespace-nowrap">Uczeń / Pracownik</th>
+                                <th class="py-3 px-3 min-w-[120px]">Instrumenty (1 / 2)</th>
+                                <th class="py-3 px-3">Login</th>
+                                <th class="py-3 px-3">Hasło (9 cyfr)</th>
+                                <th class="py-3 px-3 text-right">Akcja</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-kont-uczniow" class="divide-y divide-white/5 text-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- SZABLON PDF UKRYTY -->
+    <div id="pdf-template">
+        <div style="position: relative; margin-bottom: 30px; padding-top: 10px;">
+            <img id="pdf-logo" src="logo.png" style="position: absolute; top: 0; right: 0; width: 80px; height: 80px; object-fit: contain;" crossorigin="anonymous">
+            <div class="pdf-title">Raport Aktywności — POSM</div>
+            <div class="pdf-subtitle">
+                Okres: <span id="pdf-out-miesiac" style="font-weight:bold;">-</span><br>
+                Sporządził(a): <span id="pdf-out-autor" style="font-weight:bold;">-</span><br>
+                Data wygenerowania: <span id="pdf-out-data" style="font-weight:bold;">-</span>
+            </div>
+        </div>
+        <table class="pdf-table">
+            <tr><th>Liczba wydań kluczy</th><td id="pdf-out-suma">0</td></tr>
+            <tr><th>Najczęściej wybierana sala</th><td id="pdf-out-top">Brak</td></tr>
+            <tr><th>Najrzadziej wybierana sala</th><td id="pdf-out-bot">Brak</td></tr>
+            <tr><th>Godzina szczytu</th><td id="pdf-out-godz">Brak</td></tr>
+            <tr><th>Najbardziej oblegany dzień</th><td id="pdf-out-dzien">Brak</td></tr>
+            <tr><th>Łączny czas ćwiczeń</th><td id="pdf-out-total-godz">0 h</td></tr>
+            <tr><th>Średni czas ćwiczeń</th><td id="pdf-out-czas">0 min</td></tr>
+        </table>
+        <div><strong>Uwagi:</strong><p id="pdf-out-kom" style="margin-top:10px; font-style:italic;"></p></div>
+        <div style="margin-top:70px; text-align:right; font-size:12px;">Podpis: ............................................</div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>
