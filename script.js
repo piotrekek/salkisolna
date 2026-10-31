@@ -230,24 +230,46 @@ function obliczPozostalyCzasZaczepki(uid) {
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-// --- LOGIKA POZIOMÓW PŁOMYKA (50, 100, 200, 300, 350-365) ---
+// Funkcja wyświetlająca pełne imię i nazwisko, a gdy jest za długie na wąski ekran -> "Imię N."
+function wyrenderujNazweZnajomegoHtml(imieNazwisko) {
+    const czesci = (imieNazwisko || 'Uczeń').trim().split(/\s+/);
+    const imie = czesci[0];
+    const nazwisko = czesci.length > 1 ? czesci[czesci.length - 1] : '';
+    const pelne = nazwisko ? `${imie} ${nazwisko}` : imie;
+    const skrocone = nazwisko ? `${imie} ${nazwisko.charAt(0)}.` : imie;
+
+    if (pelne.length > 24) {
+        return ucieczkaHtml(skrocone);
+    }
+    if (pelne.length > 16) {
+        return `<span class="hidden sm:inline">${ucieczkaHtml(pelne)}</span><span class="inline sm:hidden">${ucieczkaHtml(skrocone)}</span>`;
+    }
+    return ucieczkaHtml(pelne);
+}
+
+// --- LOGIKA POZIOMÓW PŁOMYKA (WZÓR DUOLINGO: 50, 100, 200, 300, 350-365) ---
 function pobierzPoziomStreaka(dni, wymuszonyProg = null) {
     const n = (wymuszonyProg !== null && wymuszonyProg !== undefined) ? Number(wymuszonyProg) : (Number(dni) || 0);
-    if (n >= 350) return { klasa: 'streak-tier-350', nazwa: 'Złoty', textClass: 'text-yellow-300', outer: '#ca8a04', mid: '#facc15', core: '#ffffff' };
-    if (n >= 300) return { klasa: 'streak-tier-300', nazwa: 'Szmaragdowy', textClass: 'text-emerald-300', outer: '#059669', mid: '#34d399', core: '#d1fae5' };
-    if (n >= 200) return { klasa: 'streak-tier-200', nazwa: 'Błękitny', textClass: 'text-sky-300', outer: '#0284c7', mid: '#38bdf8', core: '#e0f2fe' };
-    if (n >= 100) return { klasa: 'streak-tier-100', nazwa: 'Fioletowy', textClass: 'text-purple-300', outer: '#7e22ce', mid: '#c084fc', core: '#f3e8ff' };
-    if (n >= 50) return { klasa: 'streak-tier-50', nazwa: 'Karmazynowy', textClass: 'text-rose-400', outer: '#e11d48', mid: '#fb7185', core: '#ffe4e6' };
-    return { klasa: '', nazwa: 'Pomarańczowy', textClass: 'text-orange-400', outer: '#f97316', mid: '#fbbf24', core: '#fef08a' };
+    if (n >= 350) return { klasa: 'streak-tier-350', nazwa: 'Złoty', textClass: 'text-yellow-300', outer: '#eab308', core: '#fef08a' };
+    if (n >= 300) return { klasa: 'streak-tier-300', nazwa: 'Szmaragdowy', textClass: 'text-emerald-300', outer: '#059669', core: '#6ee7b7' };
+    if (n >= 200) return { klasa: 'streak-tier-200', nazwa: 'Błękitny', textClass: 'text-sky-300', outer: '#0284c7', core: '#7dd3fc' };
+    if (n >= 100) return { klasa: 'streak-tier-100', nazwa: 'Fioletowy', textClass: 'text-purple-300', outer: '#9333ea', core: '#e9d5ff' };
+    if (n >= 50) return { klasa: 'streak-tier-50', nazwa: 'Karmazynowy', textClass: 'text-rose-400', outer: '#e11d48', core: '#fda4af' };
+    return { klasa: '', nazwa: 'Pomarańczowy', textClass: 'text-amber-400', outer: '#ff9600', core: '#ffc800' };
 }
 
 function generujMiniPlomykSvg(streakCount, isInactive, wymuszonyProg = null) {
     const maWymuszony = (wymuszonyProg !== null && wymuszonyProg !== undefined);
-    if (!maWymuszony && (isInactive || streakCount === 0)) {
-        return `<svg class="mini-flame-svg opacity-50" viewBox="0 0 36 42" fill="none"><path d="M18.5 2C18.5 2 29.5 11.5 29.5 23.5C29.5 31.8 23.8 38.5 17.5 38.5C11.2 38.5 5.5 32 5.5 24C5.5 17.5 10.2 11 10.2 11C10.2 11 9.2 16.2 12.5 18.2C11.2 11.8 18.5 2 18.5 2Z" fill="#52525b"/><path d="M18 10C18 10 25.5 16.5 25.5 25C25.5 31 21.8 36 17.5 36C13.2 36 9.5 31.2 9.5 25.5C9.5 20.5 13 16 13 16C13 16 12.8 19.5 15 21C14.2 16 18 10 18 10Z" fill="#71717a"/></svg>`;
-    }
-    const t = pobierzPoziomStreaka(streakCount, wymuszonyProg);
-    return `<svg class="mini-flame-svg" viewBox="0 0 36 42" fill="none"><path class="mini-outer" d="M18.5 2C18.5 2 29.5 11.5 29.5 23.5C29.5 31.8 23.8 38.5 17.5 38.5C11.2 38.5 5.5 32 5.5 24C5.5 17.5 10.2 11 10.2 11C10.2 11 9.2 16.2 12.5 18.2C11.2 11.8 18.5 2 18.5 2Z" fill="${t.outer}"/><path class="mini-mid" d="M18 10C18 10 25.5 16.5 25.5 25C25.5 31 21.8 36 17.5 36C13.2 36 9.5 31.2 9.5 25.5C9.5 20.5 13 16 13 16C13 16 12.8 19.5 15 21C14.2 16 18 10 18 10Z" fill="${t.mid}"/><path d="M17.5 20C17.5 20 22 24 22 29C22 32.8 19.8 35.5 17.5 35.5C15.2 35.5 13 32.8 13 29C13 25 17.5 20 17.5 20Z" fill="${t.core}"/></svg>`;
+    const isAnim = !(!maWymuszony && (isInactive || streakCount === 0));
+    const info = pobierzPoziomStreaka(streakCount, wymuszonyProg);
+    const outerCol = isAnim ? info.outer : '#52525b';
+    const coreCol = isAnim ? info.core : '#71717a';
+
+    return `<svg class="mini-flame-svg ${isAnim ? '' : 'opacity-50'}" viewBox="0 0 100 120" fill="none">
+        ${isAnim ? `<circle cx="48" cy="9" r="5" fill="${coreCol}"/><rect x="28" y="16" width="14" height="14" rx="3.5" transform="rotate(45 35 23)" fill="${coreCol}"/>` : ''}
+        <path class="${isAnim ? 'mini-outer' : ''}" d="M50 112 C29.5 112 17 98.5 17 78 L17 50 C17 42.5 25.5 39.5 30.8 45.2 L34.2 48.8 C34.8 49.4 35.8 49.2 36.3 48.4 L46 31.5 C49.8 25 58.2 25 62.5 31.5 C73.5 47.5 83 61.5 83 78 C83 98.5 70.5 112 50 112 Z" fill="${outerCol}"/>
+        <path class="${isAnim ? 'mini-core' : ''}" d="M50 97 C39.5 97 33 89.5 33 79.5 C33 72 39 64 46.8 56.5 C48.6 54.8 51.4 54.8 53.2 56.5 C61 64 67 72 67 79.5 C67 89.5 60.5 97 50 97 Z" fill="${coreCol}"/>
+    </svg>`;
 }
 
 // --- SYSTEM ODZNAK ---
@@ -656,7 +678,7 @@ function animujStreakWProfilu(streakCount, isSzary) {
         
         if (czyStreakBylAnimowany) {
             fillContainer.style.transition = 'none';
-            fillContainer.style.clipPath = 'inset(0% 0 0 0)';
+            fillContainer.style.clipPath = 'none';
             countEl.innerText = streakCount;
         } else {
             fillContainer.style.transition = 'none';
@@ -665,10 +687,10 @@ function animujStreakWProfilu(streakCount, isSzary) {
             void fillContainer.offsetWidth;
             
             streakAnimateTimeout = setTimeout(() => {
-                fillContainer.style.transition = 'clip-path 3s cubic-bezier(0.2, 0.8, 0.4, 1)';
+                fillContainer.style.transition = 'clip-path 2.6s cubic-bezier(0.2, 0.8, 0.4, 1)';
                 fillContainer.style.clipPath = 'inset(0% 0 0 0)';
                 
-                const duration = 3000; 
+                const duration = 2600; 
                 const stepTime = 30;
                 const totalSteps = duration / stepTime;
                 let currentStep = 0;
@@ -686,6 +708,7 @@ function animujStreakWProfilu(streakCount, isSzary) {
                         clearInterval(streakAnimateInterval);
                         countEl.innerText = streakCount;
                         aktualizujKolorPoziomuWProfilu(streakCount);
+                        fillContainer.style.clipPath = 'none';
                         czyStreakBylAnimowany = true;
                     }
                 }, stepTime);
@@ -2214,7 +2237,7 @@ window.wyslijZgloszenieUsterki = function() {
 window.zamknijModalSali = () => { ukryjEkran('modal-sala-uczen'); };
 
 // ==========================================
-// SOLNA WRAPPED (WARIANT B: KOŁO FORTUNY + PLAKATY BEZ SŁOWA "SALA" I BEZ CZARNEGO EKRANU)
+// SOLNA WRAPPED (WARIANT B: KOŁO FORTUNY + PLAKATY BEZ CZARNEGO EKRANU)
 // ==========================================
 window.uruchomWrapped = async function(miesiac, btnEl) {
     if(btnEl) btnEl.style.opacity = '0.5';
