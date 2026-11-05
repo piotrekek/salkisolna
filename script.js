@@ -34,16 +34,6 @@ const saleInne = ['Koncertowa','Kameralna','Lustrzana','Kryształowa'];
 const wszystkieSale = saleIIst.concat(saleIst, saleJazz, saleInne);
 const saleFortepian = ['Koncertowa', 'Lustrzana', 'Kameralna', 'Kryształowa', '16', '18', '113', '114', '116', '117', '118', '128', '129', '130', '131', '120', '01', '02', '20', '57B']; 
 
-const UKLAD_TABLICY = [
-    [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
-    ['101', '102', '103', '104', '105', '106', '107', '108', '109', '110', '111', '112', '113', '114', '115', '116', '117', '118', '119', '120'],
-    ['122', '128', '129', '130', '131', '132', '140', '141', '142', '143', '144', '145', '146', '147', null, 'Koncertowa', 'Kameralna', 'Lustrzana', 'Kryształowa', null],
-    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'],
-    ['22', '40', '41', '42', '43', '44', '45', '46', '47', '48', '49', '52', '57B', null, null, null, null, null, null, null],
-    [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
-    [null, null, null, null, null, null, null, null, null, null, null, null, null, '08', '07', '06', '04', '03', '02', '01']
-];
-
 const DOSTEPNE_IKONY_ODZNAK = ['🎃', '👻', '🏆', '👑', '💎', '⚡', '🌟', '🔥', '🎵', '🎼', '🎹', '🎻', '🎷', '🎺', '🎸', '🎯', '🚀', '🏅'];
 let wybranaIkonaOdznakiPiotr = '🎃';
 
@@ -230,26 +220,18 @@ function obliczPozostalyCzasZaczepki(uid) {
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-// Funkcja wyświetlająca pełne imię i nazwisko, a gdy jest za długie na wąski ekran -> "Imię N."
 function wyrenderujNazweZnajomegoHtml(imieNazwisko) {
     const czesci = (imieNazwisko || 'Uczeń').trim().split(/\s+/);
     const imie = czesci[0];
     const nazwisko = czesci.length > 1 ? czesci[czesci.length - 1] : '';
-    const pelne = nazwisko ? `${imie} ${nazwisko}` : imie;
     const skrocone = nazwisko ? `${imie} ${nazwisko.charAt(0)}.` : imie;
-
-    if (pelne.length > 24) {
-        return ucieczkaHtml(skrocone);
-    }
-    if (pelne.length > 16) {
-        return `<span class="hidden sm:inline">${ucieczkaHtml(pelne)}</span><span class="inline sm:hidden">${ucieczkaHtml(skrocone)}</span>`;
-    }
-    return ucieczkaHtml(pelne);
+    return ucieczkaHtml(skrocone);
 }
 
-// --- LOGIKA POZIOMÓW PŁOMYKA (WZÓR DUOLINGO: 50, 100, 200, 300, 350-365) ---
+// --- LOGIKA POZIOMÓW PŁOMYKA (WZÓR DUOLINGO) ---
 function pobierzPoziomStreaka(dni, wymuszonyProg = null) {
-    const n = (wymuszonyProg !== null && wymuszonyProg !== undefined) ? Number(wymuszonyProg) : (Number(dni) || 0);
+    if (wymuszonyProg === 'mroz') return { klasa: 'streak-frozen', nazwa: 'Zamrożony', textClass: 'text-sky-300', outer: '#0ea5e9', core: '#e0f2fe' };
+    const n = (wymuszonyProg !== null && wymuszonyProg !== undefined && typeof wymuszonyProg !== 'string') ? Number(wymuszonyProg) : (Number(dni) || 0);
     if (n >= 350) return { klasa: 'streak-tier-350', nazwa: 'Złoty', textClass: 'text-yellow-300', outer: '#eab308', core: '#fef08a' };
     if (n >= 300) return { klasa: 'streak-tier-300', nazwa: 'Szmaragdowy', textClass: 'text-emerald-300', outer: '#059669', core: '#6ee7b7' };
     if (n >= 200) return { klasa: 'streak-tier-200', nazwa: 'Błękitny', textClass: 'text-sky-300', outer: '#0284c7', core: '#7dd3fc' };
@@ -258,19 +240,55 @@ function pobierzPoziomStreaka(dni, wymuszonyProg = null) {
     return { klasa: '', nazwa: 'Pomarańczowy', textClass: 'text-amber-400', outer: '#ff9600', core: '#ffc800' };
 }
 
-function generujMiniPlomykSvg(streakCount, isInactive, wymuszonyProg = null) {
+function generujMiniPlomykSvg(streakCount, isInactive, wymuszonyProg = null, isPaused = false) {
     const maWymuszony = (wymuszonyProg !== null && wymuszonyProg !== undefined);
     const isAnim = !(!maWymuszony && (isInactive || streakCount === 0));
     const info = pobierzPoziomStreaka(streakCount, wymuszonyProg);
     const outerCol = isAnim ? info.outer : '#52525b';
     const coreCol = isAnim ? info.core : '#71717a';
 
-    return `<svg class="mini-flame-svg ${isAnim ? '' : 'opacity-50'}" viewBox="0 0 100 120" fill="none">
+    const lezkiHtml = (isPaused || wymuszonyProg === 'mroz') ? `
+        <g class="duo-tear-left">
+            <path d="M19 56 C19 56 10 67 10 73.5 C10 78.5 14 82.5 19 82.5 C24 82.5 28 78.5 28 73.5 C28 67 19 56 19 56 Z" fill="#38bdf8"/>
+        </g>
+        <g class="duo-tear-right">
+            <path d="M81 60 C81 60 72 71 72 77.5 C72 82.5 76 86.5 81 86.5 C86 86.5 90 82.5 90 77.5 C90 71 81 60 81 60 Z" fill="#38bdf8"/>
+        </g>
+    ` : '';
+
+    return `<svg class="mini-flame-svg ${(!isAnim && !isPaused && wymuszonyProg !== 'mroz') ? 'opacity-50' : ''}" viewBox="0 0 100 120" fill="none">
         ${isAnim ? `<circle cx="48" cy="9" r="5" fill="${coreCol}"/><rect x="28" y="16" width="14" height="14" rx="3.5" transform="rotate(45 35 23)" fill="${coreCol}"/>` : ''}
         <path class="${isAnim ? 'mini-outer' : ''}" d="M50 112 C29.5 112 17 98.5 17 78 L17 50 C17 42.5 25.5 39.5 30.8 45.2 L34.2 48.8 C34.8 49.4 35.8 49.2 36.3 48.4 L46 31.5 C49.8 25 58.2 25 62.5 31.5 C73.5 47.5 83 61.5 83 78 C83 98.5 70.5 112 50 112 Z" fill="${outerCol}"/>
         <path class="${isAnim ? 'mini-core' : ''}" d="M50 97 C39.5 97 33 89.5 33 79.5 C33 72 39 64 46.8 56.5 C48.6 54.8 51.4 54.8 53.2 56.5 C61 64 67 72 67 79.5 C67 89.5 60.5 97 50 97 Z" fill="${coreCol}"/>
+        ${lezkiHtml}
     </svg>`;
 }
+
+window.pokazWielkaAnimacjeStreaka = function(dni) {
+    const div = document.createElement('div');
+    div.className = 'fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/85 backdrop-blur-md transition-all duration-500 opacity-0';
+    div.innerHTML = `
+        <div id="wielki-plomyk-kontener" class="transform scale-50 transition-all duration-1000 flex flex-col items-center">
+            <div class="w-36 h-36 mb-6 animate-bounce drop-shadow-[0_0_50px_rgba(251,146,60,0.45)]">
+                ${generujMiniPlomykSvg(dni, false, null, false).replace('viewBox="0 0 100 120"', 'viewBox="0 0 100 120" style="width:100%; height:100%;"')}
+            </div>
+            <h2 class="text-4xl sm:text-5xl font-black text-white text-center text-glow">Passa Rośnie!</h2>
+            <p class="text-6xl sm:text-7xl font-black text-orange-400 text-center mt-3 drop-shadow-lg">${dni} Dni</p>
+        </div>
+    `;
+    document.body.appendChild(div);
+    setTimeout(() => {
+        div.classList.remove('opacity-0');
+        const kont = document.getElementById('wielki-plomyk-kontener');
+        kont.classList.remove('scale-50');
+        kont.classList.add('scale-110');
+        setTimeout(() => kont.classList.remove('scale-110'), 350);
+    }, 50);
+    setTimeout(() => {
+        div.classList.add('opacity-0');
+        setTimeout(() => div.remove(), 500);
+    }, 4500);
+};
 
 // --- SYSTEM ODZNAK ---
 function pobierzTabliceOdznak(uzytkownikData) {
@@ -282,21 +300,58 @@ function pobierzTabliceOdznak(uzytkownikData) {
 window.otworzSekretnyPanelPiotra = function() {
     if (!zalogowanyUczen || !zalogowanyUczen.imie_nazwisko || !zalogowanyUczen.imie_nazwisko.includes('Piotr Nowik')) return;
     
+    const boxZamr = document.getElementById('piotr-zamrozenia-box');
+    if (!boxZamr) {
+        const pan = document.querySelector('#modal-sekretny-piotra .glass-panel');
+        if (pan) {
+            pan.insertAdjacentHTML('beforeend', `
+                <div id="piotr-zamrozenia-box" class="pt-3 border-t border-white/10 flex flex-col gap-2.5">
+                    <label class="text-[10px] font-bold text-sky-400 uppercase tracking-wider block">Zarządzaj zamrożeniami (❄️)</label>
+                    <div class="flex gap-2">
+                        <select id="piotr-zamroz-uczen" class="input-classic w-full rounded-xl px-3 py-2.5 text-xs font-semibold">
+                            <option value="">Wybierz ucznia...</option>
+                        </select>
+                        <button onclick="dodajZamrozeniePiotr()" class="btn-classic-primary px-4 py-2.5 rounded-xl font-bold text-xs shrink-0 shadow-lg">+1 Dzień</button>
+                    </div>
+                </div>
+            `);
+        }
+    }
+
     const sel = document.getElementById('piotr-odznaka-uczen');
+    const selZ = document.getElementById('piotr-zamroz-uczen');
+    const uczniowieLista = Object.entries(pelnaBazaUczniow)
+        .filter(([, u]) => u && u.imie_nazwisko)
+        .sort((a, b) => a[1].imie_nazwisko.localeCompare(b[1].imie_nazwisko, 'pl'));
+        
     if (sel) {
         const obecnaWartosc = sel.value;
-        const uczniowieLista = Object.entries(pelnaBazaUczniow)
-            .filter(([, u]) => u && u.imie_nazwisko)
-            .sort((a, b) => a[1].imie_nazwisko.localeCompare(b[1].imie_nazwisko, 'pl'));
         sel.innerHTML = `<option value="">Wybierz ucznia...</option>` + uczniowieLista.map(([uid, u]) => 
             `<option value="${uid}">${ucieczkaHtml(u.imie_nazwisko)} (${ucieczkaHtml(u.klasa || '-')})</option>`
         ).join('');
         if (obecnaWartosc) sel.value = obecnaWartosc;
     }
+    if (selZ) {
+        const obecnaWartoscZ = selZ.value;
+        selZ.innerHTML = `<option value="">Wybierz ucznia...</option>` + uczniowieLista.map(([uid, u]) => 
+            `<option value="${uid}">${ucieczkaHtml(u.imie_nazwisko)} (${u.zamrozenia || 0}❄️)</option>`
+        ).join('');
+        if (obecnaWartoscZ) selZ.value = obecnaWartoscZ;
+    }
 
     renderujPaleteIkonOdznakPiotr();
     odswiezOdznakiWybranegoUczniaPiotr();
     pokazEkran('modal-sekretny-piotra');
+};
+
+window.dodajZamrozeniePiotr = function() {
+    const uid = document.getElementById('piotr-zamroz-uczen').value;
+    if (!uid || !pelnaBazaUczniow[uid]) return;
+    const akt = pelnaBazaUczniow[uid].zamrozenia || 0;
+    db.ref('uczniowie/' + uid + '/zamrozenia').set(akt + 1).then(() => {
+        pokazAlert("Sukces", `Dodano 1 dzień zamrożenia dla ${pelnaBazaUczniow[uid].imie_nazwisko}. Posiada teraz: ${akt + 1}`);
+        otworzSekretnyPanelPiotra();
+    });
 };
 
 function renderujPaleteIkonOdznakPiotr() {
@@ -649,7 +704,7 @@ function aktualizujKolorPoziomuWProfilu(streakCount) {
     const wrapper = document.getElementById('start-streak-wrapper');
     if (!wrapper) return;
     const wymuszony = zalogowanyUczen ? zalogowanyUczen.wymuszony_kolor_streaka : null;
-    wrapper.classList.remove('streak-tier-50', 'streak-tier-100', 'streak-tier-200', 'streak-tier-300', 'streak-tier-350');
+    wrapper.classList.remove('streak-tier-50', 'streak-tier-100', 'streak-tier-200', 'streak-tier-300', 'streak-tier-350', 'streak-frozen');
     const info = pobierzPoziomStreaka(streakCount, wymuszony);
     if (info.klasa) wrapper.classList.add(info.klasa);
 }
@@ -665,15 +720,24 @@ function animujStreakWProfilu(streakCount, isSzary) {
     aktualizujKolorPoziomuWProfilu(streakCount);
 
     const maWymuszonyKolor = zalogowanyUczen && zalogowanyUczen.wymuszony_kolor_streaka !== undefined && zalogowanyUczen.wymuszony_kolor_streaka !== null;
+    const ukryjCalkiem = (streakCount === 0 && !maWymuszonyKolor);
     
-    if (!maWymuszonyKolor && (isSzary || streakCount === 0)) {
+    if (ukryjCalkiem) {
+        wrapper.style.display = 'none';
+        return;
+    } else {
+        wrapper.style.display = 'flex';
+    }
+
+    if (!maWymuszonyKolor && isSzary) {
         wrapper.classList.add('streak-lost');
         wrapper.classList.remove('streak-active');
+        if (streakCount > 0) wrapper.classList.add('streak-paused');
         countEl.innerText = streakCount;
         fillContainer.style.transition = 'none';
-        fillContainer.style.clipPath = 'inset(100% 0 0 0)';
+        fillContainer.style.clipPath = 'none';
     } else {
-        wrapper.classList.remove('streak-lost');
+        wrapper.classList.remove('streak-lost', 'streak-paused');
         wrapper.classList.add('streak-active');
         
         if (czyStreakBylAnimowany) {
@@ -734,6 +798,7 @@ function przeliczStatusStreaka() {
     
     const dzis = new Date();
     dzis.setHours(0,0,0,0);
+    const dzisStr = formatujDateYMD(dzis);
     
     const ostAktywnoscStr = zalogowanyUczen.ostatnia_aktywnosc;
     let streakCount = Number(zalogowanyUczen.streak) || 0;
@@ -758,12 +823,19 @@ function przeliczStatusStreaka() {
         db.ref('uczniowie/' + zalogowanyUid).update({ streak: 0, ostatnia_aktywnosc: null, dzisiejsze_minuty: 0 });
     }
 
+    // WIELKA ANIMACJA (PIERWSZE WEJŚCIE)
+    const hasPlayedKey = 'streak_anim_played_' + zalogowanyUid + '_' + dzisStr;
+    if (minutyDzis > 0 && streakCount > 0 && !localStorage.getItem(hasPlayedKey)) {
+        localStorage.setItem(hasPlayedKey, 'true');
+        pokazWielkaAnimacjeStreaka(streakCount);
+    }
+
     const isSzary = pominieteDni > 0;
     if (aktywnaZakladkaId === 'start') animujStreakWProfilu(streakCount, isSzary);
     
     const panelOdnowy = document.getElementById('panel-odnowy-streaka');
     if (panelOdnowy) {
-        if (isSzary && streakCount > 0) {
+        if (isSzary && streakCount > 0 && zalogowanyUczen.wymuszony_kolor_streaka !== 'mroz') {
             panelOdnowy.classList.remove('hidden');
             const wymaganeMinuty = pominieteDni * 60;
             const procent = Math.min(100, Math.round((minutyDzis / wymaganeMinuty) * 100));
@@ -786,11 +858,47 @@ function przeliczStatusStreaka() {
                     btnOdzyskaj.disabled = true;
                 }
             }
+
+            // Opcja zamrożenia (jeśli ma dni)
+            let btnZamroz = document.getElementById('btn-zamroz-streak');
+            if (!btnZamroz) {
+                btnZamroz = document.createElement('button');
+                btnZamroz.id = 'btn-zamroz-streak';
+                btnZamroz.className = "w-full py-3 mt-2.5 rounded-xl font-bold text-xs sm:text-sm bg-sky-500/15 text-sky-400 border border-sky-500/30 hover:bg-sky-500/25 transition-all relative z-10 shadow-lg";
+                btnZamroz.onclick = uzyjZamrozenia;
+                panelOdnowy.appendChild(btnZamroz);
+            }
+            const ileZam = zalogowanyUczen.zamrozenia || 0;
+            if (ileZam > 0) {
+                btnZamroz.innerText = `❄️ Użyj zamrożenia (Masz: ${ileZam})`;
+                btnZamroz.style.display = 'block';
+            } else {
+                btnZamroz.style.display = 'none';
+            }
         } else {
             panelOdnowy.classList.add('hidden');
         }
     }
 }
+
+window.uzyjZamrozenia = function() {
+    if (!zalogowanyUid || !zalogowanyUczen) return;
+    const ileZam = zalogowanyUczen.zamrozenia || 0;
+    if (ileZam > 0) {
+        db.ref('uczniowie/' + zalogowanyUid).update({
+            zamrozenia: ileZam - 1,
+            ostatnia_aktywnosc: formatujDateYMD(new Date()),
+            wymuszony_kolor_streaka: 'mroz'
+        }).then(() => {
+            zalogowanyUczen.zamrozenia = ileZam - 1;
+            zalogowanyUczen.ostatnia_aktywnosc = formatujDateYMD(new Date());
+            zalogowanyUczen.wymuszony_kolor_streaka = 'mroz';
+            przeliczStatusStreaka();
+            renderujZnajomych();
+            pokazAlert("Zamrożono serię ❄️", "Zimno, ale bezpiecznie! Twój płomyk nie zgaśnie przez brak ćwiczenia dzisiaj.");
+        });
+    }
+};
 
 window.odzyskajStreak = function() {
     db.ref('uczniowie/' + zalogowanyUid).update({
@@ -801,266 +909,7 @@ window.odzyskajStreak = function() {
     }).catch(err => pokazAlert("Błąd bazy", err.message));
 };
 
-window.przelaczZakladkeUcznia = function(nazwa) {
-    if (nazwa === aktywnaZakladkaId || isTabAnimating) return;
-
-    const oldIdx = tabOrderUcznia.indexOf(aktywnaZakladkaId);
-    const newIdx = tabOrderUcznia.indexOf(nazwa);
-    const direction = newIdx > oldIdx ? 'right' : 'left'; 
-
-    isTabAnimating = true;
-    const oldView = document.getElementById('widok-' + aktywnaZakladkaId);
-    const newView = document.getElementById('widok-' + nazwa);
-
-    tabOrderUcznia.forEach(id => {
-        const btn = document.getElementById('tab-uczen-' + id);
-        if(btn) {
-            if (id === nazwa) btn.classList.add('active');
-            else btn.classList.remove('active');
-        }
-    });
-
-    if (oldView) {
-        oldView.classList.remove('anim-slide-in-right', 'anim-slide-in-left', 'animate-fade-in');
-        oldView.classList.add(direction === 'right' ? 'anim-slide-out-left' : 'anim-slide-out-right');
-    }
-
-    setTimeout(() => {
-        if (oldView) {
-            ukryjEkran('widok-' + aktywnaZakladkaId);
-            oldView.classList.remove('anim-slide-out-left', 'anim-slide-out-right');
-        }
-        if (newView) {
-            pokazEkran('widok-' + nazwa, 'flex');
-            newView.classList.remove('anim-slide-out-left', 'anim-slide-out-right', 'animate-fade-in');
-            newView.classList.add(direction === 'right' ? 'anim-slide-in-right' : 'anim-slide-in-left');
-        }
-        aktywnaZakladkaId = nazwa;
-        
-        setTimeout(() => {
-            isTabAnimating = false;
-            if (nazwa === 'start') {
-                const isSzary = document.getElementById('panel-odnowy-streaka') && !document.getElementById('panel-odnowy-streaka').classList.contains('hidden');
-                animujStreakWProfilu(Number(zalogowanyUczen.streak) || 0, isSzary);
-            }
-        }, 300);
-
-        if (nazwa === 'glosowania') { localStorage.setItem('posm_last_seen_ankiety', terazDataString()); renderujWidokStart(); }
-        if (nazwa === 'propozycje') { localStorage.setItem('posm_last_seen_propozycje', terazDataString()); renderujWidokStart(); }
-        window.scrollTo({top: 0, behavior: 'smooth'});
-    }, 280); 
-};
-
-function sprawdzUprawnieniaSamorzadu() {
-    if (zalogowanyUczen && zalogowanyUczen.rola === 'samorzad') {
-        const btn = document.getElementById('tab-uczen-panel-samorzadu');
-        if (btn) {
-            btn.classList.remove('hidden');
-            btn.style.setProperty('display', 'inline-flex', 'important'); 
-        }
-    }
-}
-
-function aktualizujTogglyPush() {
-    const tU = document.getElementById('push-ulubione');
-    const tA = document.getElementById('push-ankiety');
-    const tP = document.getElementById('push-propozycje');
-    const tS = document.getElementById('ustawienie-prywatnosc-sala');
-    const tR = document.getElementById('ustawienie-prywatnosc-ranking');
-    if (tU) tU.checked = ustawieniaPush.ulubione === true;
-    if (tA) tA.checked = ustawieniaPush.ankiety === true;
-    if (tP) tP.checked = ustawieniaPush.propozycje === true;
-    if (tS && zalogowanyUczen.ustawienia_prywatnosci) tS.checked = zalogowanyUczen.ustawienia_prywatnosci.pokazuj_sale !== false;
-    if (tR && zalogowanyUczen.ustawienia_prywatnosci) tR.checked = zalogowanyUczen.ustawienia_prywatnosci.pokazuj_w_rankingu === true;
-}
-
-window.zmienUstawieniePush = function(typ, wartosc) {
-    if (!zalogowanyUid) return;
-    ustawieniaPush[typ] = wartosc;
-    db.ref(`uczniowie/${zalogowanyUid}/powiadomienia/${typ}`).set(wartosc);
-};
-
-window.zmienUstawienieRankingu = function(pokazujWRankingu) {
-    if (!zalogowanyUid) return;
-    if (!zalogowanyUczen.ustawienia_prywatnosci) zalogowanyUczen.ustawienia_prywatnosci = {};
-    zalogowanyUczen.ustawienia_prywatnosci.pokazuj_w_rankingu = pokazujWRankingu;
-    db.ref('uczniowie/' + zalogowanyUid + '/ustawienia_prywatnosci/pokazuj_w_rankingu').set(pokazujWRankingu).then(() => {
-        renderujPodiumTygodnia();
-    }).catch(e => pokazAlert("Błąd", e.message));
-};
-
-function uruchomAnimacjePowitania(daneUcznia, callback) {
-    const ep = document.getElementById('ekran-powitania');
-    const imie = daneUcznia.imie_nazwisko ? daneUcznia.imie_nazwisko.split(' ')[0] : 'Uczniu';
-    ep.innerHTML = `
-        <div class="flex flex-col items-center justify-center h-full w-full relative">
-            <h1 id="tekst-powitania" class="text-4xl sm:text-5xl font-black text-white text-glow opacity-0 transition-all duration-1000 transform translate-y-4 tracking-tight absolute">Cześć, ${ucieczkaHtml(imie)}</h1>
-            <div id="loader-kontener" class="w-48 h-[2px] bg-white/10 rounded-full overflow-hidden opacity-0 absolute transition-opacity duration-700">
-                <div class="h-full bg-white w-0" id="powitanie-bar" style="transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);"></div>
-            </div>
-        </div>
-    `;
-    pokazEkran('ekran-powitania');
-    setTimeout(() => { document.getElementById('tekst-powitania')?.classList.remove('opacity-0', 'translate-y-4'); }, 100);
-    setTimeout(() => { document.getElementById('tekst-powitania')?.classList.add('opacity-0', '-translate-y-4'); }, 1800);
-    setTimeout(() => {
-        document.getElementById('loader-kontener')?.classList.remove('opacity-0');
-        setTimeout(() => { const b = document.getElementById('powitanie-bar'); if(b) b.style.width = '100%'; }, 100);
-    }, 2400);
-    setTimeout(() => {
-        ep.classList.add('opacity-0');
-        setTimeout(() => { ukryjEkran('ekran-powitania'); ep.classList.remove('opacity-0'); ep.innerHTML = ''; callback(); }, 600);
-    }, 4000);
-}
-
-window.zalogujUcznia = async function() {
-    const loginWpisany = usunPolskieZnaki(document.getElementById('login-input').value.trim()).replace(/[-\s]+/g, '.').replace(/\.+/g, '.');
-    const hasloWpisane = document.getElementById('haslo-input').value.trim();
-    if (!loginWpisany || !hasloWpisane) { pokazAlert("Uwaga", "Wpisz login oraz hasło."); return; }
-
-    db.ref('uczniowie').once('value', async snap => {
-        const uczniowie = snap.val() || {};
-        let znUid = null, znDane = null;
-        for (const [uid, u] of Object.entries(uczniowie)) {
-            if (!u || !u.imie_nazwisko) continue;
-            const logKrotki = wygenerujLoginZImienia(u.imie_nazwisko);
-            const logBazy = u.login ? usunPolskieZnaki(u.login).replace(/[-\s]+/g, '.').replace(/\.+/g, '.') : logKrotki;
-            if (loginWpisany === logBazy || loginWpisany === logKrotki) { znUid = uid; znDane = u; break; }
-        }
-        if (!znUid) { pokazAlert("Błąd logowania", "Nie znaleziono konta."); return; }
-        
-        const hashedWpisane = await sha256(hasloWpisane);
-        if (znDane.zmieniono_haslo === true) {
-            if (String(znDane.haslo) !== hashedWpisane) { pokazAlert("Błąd logowania", "Błędne hasło."); return; }
-        } else {
-            if (String(znDane.haslo || 'posm123') !== hasloWpisane) { pokazAlert("Błąd logowania", "Błędne hasło (startowe)."); return; }
-        }
-        
-        if (!znDane.kod_znajomego) {
-            znDane.kod_znajomego = String(Math.floor(100000000 + Math.random() * 900000000)).replace(/(.{3})/g, '$1 ').trim();
-            db.ref('uczniowie/' + znUid + '/kod_znajomego').set(znDane.kod_znajomego).catch(e => console.log(e));
-        }
-        if (!znDane.ustawienia_prywatnosci) {
-            znDane.ustawienia_prywatnosci = { pokazuj_sale: true, pokazuj_w_rankingu: false };
-            db.ref('uczniowie/' + znUid + '/ustawienia_prywatnosci').set(znDane.ustawienia_prywatnosci).catch(e=>console.log(e));
-        }
-        
-        zalogowanyUid = znUid; zalogowanyUczen = znDane; czyStreakBylAnimowany = false;
-        ulubioneSale = znDane.ulubione ? Object.values(znDane.ulubione).filter(Boolean) : [];
-        ustawieniaPush = znDane.powiadomienia || { ulubione: false, ankiety: false, propozycje: false };
-
-        if (znDane.zmieniono_haslo !== true) {
-            ukryjEkran('ekran-logowania'); pokazEkran('ekran-zmiany-hasla');
-        } else {
-            ukryjEkran('ekran-logowania');
-            localStorage.setItem('posm_uczen_uid', zalogowanyUid); 
-            uruchomAnimacjePowitania(znDane, () => { uruchomWidokTablicy(); sprawdzUprawnieniaSamorzadu(); });
-        }
-    });
-};
-
-window.zapiszNoweHaslo = async function() {
-    const h1 = document.getElementById('nowe-haslo-1').value.trim(), h2 = document.getElementById('nowe-haslo-2').value.trim();
-    if (h1.length < 4) { pokazAlert("Uwaga", "Minimum 4 znaki."); return; }
-    if (h1 === String(zalogowanyUczen.haslo || '') || h1.toLowerCase() === 'posm123') { pokazAlert("Uwaga", "Hasło musi różnić się od startowego."); return; }
-    if (h1 !== h2) { pokazAlert("Uwaga", "Hasła nie są identyczne."); return; }
-
-    const hashedHaslo = await sha256(h1);
-    db.ref('uczniowie/' + zalogowanyUid).update({ login: wygenerujLoginZImienia(zalogowanyUczen.imie_nazwisko), haslo: hashedHaslo, zmieniono_haslo: true }).then(() => {
-        zalogowanyUczen.haslo = hashedHaslo; zalogowanyUczen.zmieniono_haslo = true;
-        localStorage.setItem('posm_uczen_uid', zalogowanyUid);
-        ukryjEkran('ekran-zmiany-hasla');
-        uruchomAnimacjePowitania(zalogowanyUczen, () => { uruchomWidokTablicy(); sprawdzUprawnieniaSamorzadu(); });
-    }).catch(err => pokazAlert("Błąd bazy", err.message));
-};
-
-window.wylogujUcznia = function() { localStorage.removeItem('posm_uczen_uid'); location.reload(); };
-
-window.addEventListener('DOMContentLoaded', () => {
-    const zUid = localStorage.getItem('posm_uczen_uid');
-    if (zUid) {
-        ukryjEkran('ekran-logowania');
-        db.ref('uczniowie/' + zUid).once('value', snap => {
-            const dane = snap.val();
-            if (dane && dane.zmieniono_haslo === true) {
-                if (!dane.kod_znajomego) {
-                    dane.kod_znajomego = String(Math.floor(100000000 + Math.random() * 900000000)).replace(/(.{3})/g, '$1 ').trim();
-                    db.ref('uczniowie/' + zUid + '/kod_znajomego').set(dane.kod_znajomego).catch(e=>console.log(e));
-                }
-                if (!dane.ustawienia_prywatnosci) {
-                    dane.ustawienia_prywatnosci = { pokazuj_sale: true, pokazuj_w_rankingu: false };
-                    db.ref('uczniowie/' + zUid + '/ustawienia_prywatnosci').set(dane.ustawienia_prywatnosci).catch(e=>console.log(e));
-                }
-                zalogowanyUid = zUid; zalogowanyUczen = dane; 
-                ulubioneSale = dane.ulubione ? Object.values(dane.ulubione).filter(Boolean) : []; 
-                ustawieniaPush = dane.powiadomienia || { ulubione: false, ankiety: false, propozycje: false };
-                uruchomAnimacjePowitania(dane, () => { uruchomWidokTablicy(); sprawdzUprawnieniaSamorzadu(); });
-            } else { pokazEkran('ekran-logowania'); }
-        });
-    } else { pokazEkran('ekran-logowania'); }
-});
-
-window.kopiujMojKod = function() {
-    const el = document.getElementById('moj-kod-znajomego');
-    if (!el || !navigator.clipboard) return;
-    navigator.clipboard.writeText(el.innerText.trim()).then(() => {
-        pokazAlert("Skopiowano kod", "Twój kod znajomego został skopiowany do schowka.");
-    });
-};
-
-function odswiezDaneProfiluUI() {
-    try {
-        const i1 = zalogowanyUczen.instrument || '-';
-        const i2 = (zalogowanyUczen.instrument2 || zalogowanyUczen.instrument_2 || zalogowanyUczen.drugi_instrument || '').trim();
-        const czesciImienia = (zalogowanyUczen.imie_nazwisko || 'Uczeń').split(' ');
-        let krotkaNazwa = czesciImienia[0];
-        if (czesciImienia.length > 1) krotkaNazwa += ' ' + czesciImienia[czesciImienia.length - 1]; 
-        if (krotkaNazwa.length > 18) krotkaNazwa = krotkaNazwa.substring(0, 15) + '...';
-        
-        document.getElementById('nav-uczen-info').innerText = krotkaNazwa + ' (' + (zalogowanyUczen.klasa || '-') + ')';
-        document.getElementById('start-powitanie').innerText = czesciImienia[0];
-        document.getElementById('start-klasa').innerText = (zalogowanyUczen.rola === 'nauczyciel' || zalogowanyUczen.rola === 'pracownik' || zalogowanyUczen.rola === 'administracja' || zalogowanyUczen.rola === 'obsluga') ? 'Pracownik szkoły' : 'Klasa ' + (zalogowanyUczen.klasa || '-');
-        
-        const startAvatarBox = document.getElementById('start-avatar-box');
-        if (startAvatarBox) startAvatarBox.innerHTML = wyrenderujWnetrzeAvataru(zalogowanyUczen, 'text-xl sm:text-2xl');
-
-        const odznakiKont = document.getElementById('start-odznaki-kontener');
-        const odznakiLista = document.getElementById('start-odznaki-lista');
-        const mojeOdznaki = pobierzTabliceOdznak(zalogowanyUczen);
-        if (odznakiKont && odznakiLista) {
-            if (mojeOdznaki.length > 0) {
-                pokazEkran('start-odznaki-kontener', 'flex');
-                odznakiLista.innerHTML = mojeOdznaki.map((odz, idx) => `
-                    <div onclick="otworzSzczegolyOdznaki('${zalogowanyUid}', ${idx})" class="badge-chip">
-                        <span class="text-base leading-none">${ucieczkaHtml(odz.ikona)}</span>
-                        <span>${ucieczkaHtml(odz.tytul)}</span>
-                    </div>
-                `).join('');
-            } else {
-                ukryjEkran('start-odznaki-kontener');
-            }
-        }
-
-        const i1L = i1.toLowerCase();
-        const czyPrzedmiot = i1L.includes('dyrygentur') || i1L.includes('lutnictw') || i1L.includes('kompozycj');
-        const lbl = document.getElementById('label-instr-1');
-        if (lbl) lbl.innerText = czyPrzedmiot ? 'Przedmiot główny' : 'Główny instrument';
-
-        document.getElementById('start-instr-1').innerText = i1;
-        document.getElementById('start-instr-2').innerText = i2 ? i2 : 'Brak';
-        
-        const mk = document.getElementById('moj-kod-znajomego');
-        const imgQr = document.getElementById('img-qr-kod');
-        if(mk && imgQr) {
-            const samKod = String(zalogowanyUczen.kod_znajomego || '123456789').replace(/\s/g, '');
-            mk.innerText = samKod.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
-            imgQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${samKod}&bgcolor=ffffff`;
-        }
-        przeliczStatusStreaka();
-    } catch (e) { console.error("Błąd odświeżania profilu: ", e); }
-}
-
-// --- PODIUM TYGODNIA I STATYSTYKI TYGODNIOWE (PEŁNA TABELA WSZYSTKICH UCZNIÓW) ---
+// --- PODIUM TYGODNIA I STATYSTYKI TYGODNIOWE (TOP 5 + TY) ---
 function pobierzPoniedzialekTygodniaStr() {
     const teraz = new Date();
     const dzien = teraz.getDay();
@@ -1136,46 +985,64 @@ function renderujPodiumTygodnia() {
         return;
     }
 
-    kon.innerHTML = kandydaci.map((item, idx) => {
-        const miejsce = idx + 1;
-        const isMe = (item.uid === zalogowanyUid);
-        const cz = item.u.imie_nazwisko.split(' ');
-        const nazwa = cz.length > 1 ? `${cz[0]} ${cz[cz.length - 1]}` : cz[0];
-        const instr = item.u.instrument || '';
-        
-        const h = Math.floor(item.minuty / 60);
-        const m = item.minuty % 60;
-        const czasTxt = h > 0 ? `${h}h ${m}m` : `${m} min`;
+    const maZgode = zalogowanyUczen && zalogowanyUczen.ustawienia_prywatnosci && zalogowanyUczen.ustawienia_prywatnosci.pokazuj_w_rankingu === true;
+    let mojRankingIdx = kandydaci.findIndex(k => k.uid === zalogowanyUid);
+    
+    // Zbieramy do 5 najlepszych
+    let doWyswietlenia = kandydaci.slice(0, 5);
+    let doklejMnie = false;
 
-        let znaczekMiejsca = `<span class="w-7 text-center text-xs font-extrabold text-zinc-500">#${miejsce}</span>`;
-        let stylWiersza = isMe ? 'border-indigo-500/40 bg-indigo-500/10' : 'border-white/5 bg-zinc-900/40';
+    if (maZgode && mojRankingIdx >= 5) {
+        doklejMnie = true;
+    }
 
-        if (miejsce === 1) {
-            znaczekMiejsca = `<span class="w-7 text-center text-base leading-none">🥇</span>`;
-            if (!isMe) stylWiersza = 'border-yellow-400/30 bg-yellow-500/5';
-        } else if (miejsce === 2) {
-            znaczekMiejsca = `<span class="w-7 text-center text-base leading-none">🥈</span>`;
-            if (!isMe) stylWiersza = 'border-zinc-400/25 bg-zinc-800/40';
-        } else if (miejsce === 3) {
-            znaczekMiejsca = `<span class="w-7 text-center text-base leading-none">🥉</span>`;
-            if (!isMe) stylWiersza = 'border-amber-600/25 bg-amber-950/20';
-        }
+    let finalHtml = doWyswietlenia.map((item, idx) => wygenerujWierszPodium(item, idx + 1)).join('');
+    
+    if (doklejMnie) {
+        finalHtml += `<div class="flex items-center gap-2 justify-center py-1"><span class="w-1 h-1 rounded-full bg-zinc-600"></span><span class="w-1 h-1 rounded-full bg-zinc-600"></span><span class="w-1 h-1 rounded-full bg-zinc-600"></span></div>`;
+        finalHtml += wygenerujWierszPodium(kandydaci[mojRankingIdx], mojRankingIdx + 1);
+    }
 
-        return `
-        <div class="px-3.5 py-2.5 rounded-xl border ${stylWiersza} flex items-center justify-between gap-3 transition-colors">
-            <div class="flex items-center gap-3 min-w-0">
-                ${znaczekMiejsca}
-                <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-white/10 flex items-center justify-center overflow-hidden shrink-0 text-[11px] font-bold text-white">
-                    ${wyrenderujWnetrzeAvataru(item.u, 'text-[11px]')}
-                </div>
-                <div class="flex items-center gap-2 min-w-0 flex-wrap">
-                    <span class="text-xs sm:text-sm font-bold ${isMe ? 'text-indigo-300' : 'text-white'} truncate">${ucieczkaHtml(nazwa)}${isMe ? ' (Ty)' : ''}</span>
-                    ${instr ? `<span class="text-[10px] text-zinc-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/5 hidden sm:inline-block">${ucieczkaHtml(instr)}</span>` : ''}
-                </div>
+    kon.innerHTML = finalHtml;
+}
+
+function wygenerujWierszPodium(item, miejsce) {
+    const isMe = (item.uid === zalogowanyUid);
+    const nazwa = wyrenderujNazweZnajomegoHtml(item.u.imie_nazwisko);
+    const instr = item.u.instrument || '';
+    
+    const h = Math.floor(item.minuty / 60);
+    const m = item.minuty % 60;
+    const czasTxt = h > 0 ? `${h}h ${m}m` : `${m} min`;
+
+    let znaczekMiejsca = `<span class="w-7 text-center text-xs font-extrabold text-zinc-500">#${miejsce}</span>`;
+    let stylWiersza = isMe ? 'border-indigo-500/40 bg-indigo-500/10' : 'border-white/5 bg-zinc-900/40';
+
+    if (miejsce === 1) {
+        znaczekMiejsca = `<span class="w-7 text-center text-base leading-none">🥇</span>`;
+        if (!isMe) stylWiersza = 'border-yellow-400/30 bg-yellow-500/5';
+    } else if (miejsce === 2) {
+        znaczekMiejsca = `<span class="w-7 text-center text-base leading-none">🥈</span>`;
+        if (!isMe) stylWiersza = 'border-zinc-400/25 bg-zinc-800/40';
+    } else if (miejsce === 3) {
+        znaczekMiejsca = `<span class="w-7 text-center text-base leading-none">🥉</span>`;
+        if (!isMe) stylWiersza = 'border-amber-600/25 bg-amber-950/20';
+    }
+
+    return `
+    <div class="px-3.5 py-2.5 rounded-xl border ${stylWiersza} flex items-center justify-between gap-3 transition-colors">
+        <div class="flex items-center gap-3 min-w-0">
+            ${znaczekMiejsca}
+            <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-white/10 flex items-center justify-center overflow-hidden shrink-0 text-[11px] font-bold text-white">
+                ${wyrenderujWnetrzeAvataru(item.u, 'text-[11px]')}
             </div>
-            <span class="text-xs font-black text-emerald-300 shrink-0">${czasTxt}</span>
-        </div>`;
-    }).join('');
+            <div class="flex items-center gap-2 min-w-0 flex-wrap">
+                <span class="text-xs sm:text-sm font-bold ${isMe ? 'text-indigo-300' : 'text-white'} truncate">${nazwa}${isMe ? ' (Ty)' : ''}</span>
+                ${instr ? `<span class="text-[10px] text-zinc-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/5 hidden sm:inline-block">${ucieczkaHtml(instr)}</span>` : ''}
+            </div>
+        </div>
+        <span class="text-xs font-black text-emerald-300 shrink-0">${czasTxt}</span>
+    </div>`;
 }
 
 function uruchomWidokTablicy() {
@@ -1359,7 +1226,6 @@ window.zmienSortowanieZnajomych = function(tryb) {
     renderujZnajomych();
 };
 
-// --- WIZYTÓWKA ZNAJOMEGO (SAMA CYFRA W SERII + ODZNAKI + POJEDYNEK 1V1) ---
 window.otworzProfilZnajomego = function(uid) {
     const u = pelnaBazaUczniow[uid];
     if (!u) return;
@@ -1431,7 +1297,7 @@ window.otworzProfilZnajomego = function(uid) {
 
 window.zamknijProfilZnajomego = function() { ukryjEkran('modal-profil-znajomego'); };
 
-// --- SYSTEM ZACZEPEK (BEZ OPISÓW I BEZ PYTANIA O SALĘ) ---
+// --- SYSTEM ZACZEPEK ---
 function odtworzAnimacjeZaczepkiNaKafelku(uid, opcja, tryb) {
     const tile = document.getElementById('friend-tile-' + uid);
     const avatar = document.getElementById('friend-avatar-' + uid);
@@ -1699,16 +1565,15 @@ function renderujZnajomych() {
                 if (ostAkt < wczoraj) pominiete = dniRoboczePomiedzy(ostAkt, wczoraj);
             }
         }
-        if (pominiete > 2) znStreak = 0;
+        if (pominiete > 2 && daneUcznia.wymuszony_kolor_streaka !== 'mroz') znStreak = 0;
 
-        const czesciImienia = (daneUcznia.imie_nazwisko || 'Uczeń').split(' ');
-        const sameImie = czesciImienia[0];
-        const krotkieImieNazwisko = czesciImienia.length > 1 ? `${czesciImienia[0]} ${czesciImienia[czesciImienia.length - 1]}` : sameImie;
+        const sameImie = daneUcznia.imie_nazwisko.split(' ')[0];
+        const nazwaHTML = wyrenderujNazweZnajomegoHtml(daneUcznia.imie_nazwisko);
         const instr = daneUcznia.instrument || '';
         const pozostalyCzas = obliczPozostalyCzasZaczepki(uId);
 
         paczkiDoRenderu.push({
-            uId, daneUcznia, sameImie, krotkieImieNazwisko, instr, obecnaSala, minutyWSaliTeraz,
+            uId, daneUcznia, sameImie, nazwaHTML, instr, obecnaSala, minutyWSaliTeraz,
             ukrywajSale: daneUcznia.ustawienia_prywatnosci ? daneUcznia.ustawienia_prywatnosci.pokazuj_sale === false : false,
             znStreak, pominiete, cwiczylDzisiaj, dzisMinuty, pozostalyCzas
         });
@@ -1740,7 +1605,7 @@ function renderujZnajomych() {
             trybZaczepki = 'brawa';
             domyslnyPrzyciskKlasy = 'btn-classic-secondary';
             domyslnyTekstPrzycisku = 'Zaczep 👋';
-        } else if (item.pominiete > 0 && item.znStreak > 0) {
+        } else if (item.pominiete > 0 && item.znStreak > 0 && item.daneUcznia.wymuszony_kolor_streaka !== 'mroz') {
             statusBadge = `<span class="flex items-center gap-1.5 text-xs text-amber-400/90"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>Seria zagrożona</span>`;
         }
 
@@ -1756,10 +1621,15 @@ function renderujZnajomych() {
         }
 
         const wymuszonyKolor = item.daneUcznia.wymuszony_kolor_streaka;
-        const isInactive = (wymuszonyKolor === null || wymuszonyKolor === undefined) && (item.pominiete > 0 || item.znStreak === 0);
+        const isPaused = (item.pominiete > 0 && item.znStreak > 0) || wymuszonyKolor === 'mroz';
+        const isInactive = (wymuszonyKolor === null || wymuszonyKolor === undefined) && (item.pominiete > 0 || item.znStreak === 0) && !isPaused;
         const tierInfo = pobierzPoziomStreaka(item.znStreak, wymuszonyKolor);
-        const kolorLiczby = isInactive ? 'text-zinc-500' : tierInfo.textClass;
-        const streakWizualny = `<span class="inline-flex items-center gap-1 font-bold text-xs ${kolorLiczby}">${generujMiniPlomykSvg(item.znStreak, isInactive, wymuszonyKolor)} ${item.znStreak}</span>`;
+        
+        let streakWizualny = '';
+        if (!(item.znStreak === 0 && (wymuszonyKolor === null || wymuszonyKolor === undefined))) {
+            const kolorLiczby = isInactive ? 'text-zinc-500' : tierInfo.textClass;
+            streakWizualny = `<span class="inline-flex items-center gap-1 font-bold text-xs ${kolorLiczby}">${generujMiniPlomykSvg(item.znStreak, isInactive, wymuszonyKolor, isPaused)} ${item.znStreak}</span>`;
+        }
 
         const odznakiZn = pobierzTabliceOdznak(item.daneUcznia).slice(0, 3);
         const odznakiHtml = odznakiZn.length > 0
@@ -1774,7 +1644,7 @@ function renderujZnajomych() {
                 </div>
                 <div class="flex flex-col min-w-0">
                     <div class="flex items-center gap-2 flex-wrap">
-                        <span class="font-bold text-white group-hover:text-indigo-300 transition-colors text-sm truncate" id="nazwa-znajomego-${item.uId}">${ucieczkaHtml(item.krotkieImieNazwisko)}</span>
+                        <span class="font-bold text-white group-hover:text-indigo-300 transition-colors text-sm truncate" id="nazwa-znajomego-${item.uId}">${item.nazwaHTML}</span>
                         ${streakWizualny}
                         ${odznakiHtml}
                         ${item.instr ? `<span class="text-[10px] text-zinc-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/5 hidden sm:inline-block">${ucieczkaHtml(item.instr)}</span>` : ''}
@@ -2237,7 +2107,7 @@ window.wyslijZgloszenieUsterki = function() {
 window.zamknijModalSali = () => { ukryjEkran('modal-sala-uczen'); };
 
 // ==========================================
-// SOLNA WRAPPED (WARIANT B: KOŁO FORTUNY + PLAKATY BEZ CZARNEGO EKRANU)
+// SOLNA WRAPPED (WARIANT B: KOŁO FORTUNY)
 // ==========================================
 window.uruchomWrapped = async function(miesiac, btnEl) {
     if(btnEl) btnEl.style.opacity = '0.5';
