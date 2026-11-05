@@ -1252,3 +1252,66 @@ window.renderujPropozycjeZarzadzanie = function() {
 };
 
 if (zalogowanyUczen && zalogowanyUczen.rola === 'samorzad') { renderujAnkietyZarzadzanie(); renderujPropozycjeZarzadzanie(); }
+
+function uruchomWidokTablicy() {
+    window.scrollTo(0, 0); 
+    try {
+        aktualizujTogglyPush();
+        odswiezDaneProfiluUI(); 
+        generujTabliceKlasyczna(); 
+        if (obecnaWizualizacja === 'fizyczna') renderujTabliceFizyczna();
+        renderujUlubione();
+        nasluchujZmianSal(); 
+        nasluchujAnkietIPropozycji();
+        odswiezStatystykiTygodniowe();
+        
+        db.ref('uczniowie').on('value', snap => {
+            pelnaBazaUczniow = snap.val() || {};
+            if (zalogowanyUid && pelnaBazaUczniow[zalogowanyUid]) {
+                zalogowanyUczen = pelnaBazaUczniow[zalogowanyUid];
+                try { odswiezDaneProfiluUI(); } catch(e) {}
+            }
+            if (zalogowanyUczen && zalogowanyUczen.rola === 'samorzad') {
+                if (typeof renderujAnkietyZarzadzanie === 'function') renderujAnkietyZarzadzanie();
+                if (typeof renderujPropozycjeZarzadzanie === 'function') renderujPropozycjeZarzadzanie();
+            }
+            if (!trwaAnimacjaZaczepki) { try { renderujZnajomych(); } catch(e) {} }
+            try { renderujPodiumTygodnia(); } catch(e) {}
+            try {
+                generujTabliceKlasyczna();
+                if (obecnaWizualizacja === 'fizyczna') renderujTabliceFizyczna();
+                ustawFiltr(aktywnyFiltr);
+            } catch(e) {}
+        });
+        
+        db.ref('znajomi/' + zalogowanyUid).on('value', snap => {
+            mojeZnajomosci = snap.val() || { akceptowani: {}, zaproszenia: {}, zaproszenia_wyslane: {} };
+            if (!trwaAnimacjaZaczepki) { try { renderujZnajomych(); } catch(e) {} }
+            try {
+                generujTabliceKlasyczna();
+                if (obecnaWizualizacja === 'fizyczna') renderujTabliceFizyczna();
+                ustawFiltr(aktywnyFiltr);
+            } catch(e) {}
+        });
+        
+        db.ref('zaczepki/' + zalogowanyUid).on('child_added', snap => {
+            try {
+                const data = snap.val();
+                if (data && Date.now() - data.czas < 180000) { 
+                    if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
+                    pokazOdebranaZaczepkeDuo(data);
+                }
+                snap.ref.remove();
+            } catch (e) {}
+        });
+
+        setInterval(() => {
+            if (!trwaAnimacjaZaczepki && aktywnaZakladkaId === 'znajomi') {
+                try { renderujZnajomych(); } catch(e) {}
+            }
+        }, 30000);
+    } catch (globalError) { console.error("Krytyczny błąd UI zignorowany:", globalError); }
+
+    aktywnaZakladkaId = 'start';
+    pokazEkran('ekran-glowny', 'flex');
+}
