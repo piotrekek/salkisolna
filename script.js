@@ -59,6 +59,7 @@ let sortowanieZnajomych = 'streak';
 let wybranyAvatarTymczasowy = null;
 let domyslnyConfirmCallback = null;
 let minutyTygodnioweMapa = {};
+let zamrozoneDniSzkoly = {};
 
 let cropState = {
     img: null,
@@ -194,17 +195,32 @@ function biezacyMiesiacString() {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); 
 }
 
-function dniRoboczePomiedzy(d1, d2) {
+// Funkcja obliczająca pominięte dni robocze z uwzględnieniem zamrożonych dni szkoły oraz prywatnych zamrożeń ucznia
+function dniRoboczePomiedzy(d1, d2, uzytkownikData = null) {
     let dni = 0;
     let obecna = new Date(d1.getTime());
     obecna.setHours(0,0,0,0);
     d2.setHours(0,0,0,0);
+    const prywatneZamrozone = (uzytkownikData && uzytkownikData.zamrozone_dni) ? uzytkownikData.zamrozone_dni : {};
+
     while (obecna < d2) {
         obecna.setDate(obecna.getDate() + 1);
         const day = obecna.getDay();
-        if (day !== 0 && day !== 6) dni++; 
+        const ymd = formatujDateYMD(obecna);
+        if (day !== 0 && day !== 6) {
+            if (!zamrozoneDniSzkoly[ymd] && !prywatneZamrozone[ymd]) {
+                dni++;
+            }
+        }
     }
     return dni;
+}
+
+function czyDzienJestZamrozonyDlaUcznia(ymd, uzytkownikData) {
+    if (!ymd) return false;
+    if (zamrozoneDniSzkoly && zamrozoneDniSzkoly[ymd]) return true;
+    if (uzytkownikData && uzytkownikData.zamrozone_dni && uzytkownikData.zamrozone_dni[ymd]) return true;
+    return false;
 }
 
 function parsowacCzas(czasStr) {
@@ -230,25 +246,19 @@ function obliczPozostalyCzasZaczepki(uid) {
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-// Funkcja wyświetlająca pełne imię i nazwisko, a gdy jest za długie na wąski ekran -> "Imię N."
-function wyrenderujNazweZnajomegoHtml(imieNazwisko) {
-    const czesci = (imieNazwisko || 'Uczeń').trim().split(/\s+/);
-    const imie = czesci[0];
+// Zawsze zwraca pełne imię i pierwszą literę nazwiska (np. "Aleksandra K.")
+function sformatujImieINazwiskoKropka(imieNazwisko) {
+    const czesci = (imieNazwisko || 'Uczeń').trim().split(/\s+/).filter(Boolean);
+    const imie = czesci[0] || 'Uczeń';
     const nazwisko = czesci.length > 1 ? czesci[czesci.length - 1] : '';
-    const pelne = nazwisko ? `${imie} ${nazwisko}` : imie;
-    const skrocone = nazwisko ? `${imie} ${nazwisko.charAt(0)}.` : imie;
-
-    if (pelne.length > 24) {
-        return ucieczkaHtml(skrocone);
-    }
-    if (pelne.length > 16) {
-        return `<span class="hidden sm:inline">${ucieczkaHtml(pelne)}</span><span class="inline sm:hidden">${ucieczkaHtml(skrocone)}</span>`;
-    }
-    return ucieczkaHtml(pelne);
+    return nazwisko ? `${imie} ${nazwisko.charAt(0).toUpperCase()}.` : imie;
 }
 
 // --- LOGIKA POZIOMÓW PŁOMYKA (WZÓR DUOLINGO: 50, 100, 200, 300, 350-365) ---
-function pobierzPoziomStreaka(dni, wymuszonyProg = null) {
+function pobierzPoziomStreaka(dni, wymuszonyProg = null, czyZamrozony = false) {
+    if (czyZamrozony) {
+        return { klasa: 'streak-frozen', nazwa: 'Zamrożony', textClass: 'text-sky-300', outer: '#0ea5e9', core: '#e0f2fe' };
+    }
     const n = (wymuszonyProg !== null && wymuszonyProg !== undefined) ? Number(wymuszonyProg) : (Number(dni) || 0);
     if (n >= 350) return { klasa: 'streak-tier-350', nazwa: 'Złoty', textClass: 'text-yellow-300', outer: '#eab308', core: '#fef08a' };
     if (n >= 300) return { klasa: 'streak-tier-300', nazwa: 'Szmaragdowy', textClass: 'text-emerald-300', outer: '#059669', core: '#6ee7b7' };
@@ -258,21 +268,146 @@ function pobierzPoziomStreaka(dni, wymuszonyProg = null) {
     return { klasa: '', nazwa: 'Pomarańczowy', textClass: 'text-amber-400', outer: '#ff9600', core: '#ffc800' };
 }
 
-function generujMiniPlomykSvg(streakCount, isInactive, wymuszonyProg = null) {
+function generujMiniPlomykSvg(streakCount, isInactive, wymuszonyProg = null, czyZamrozony = false) {
     const maWymuszony = (wymuszonyProg !== null && wymuszonyProg !== undefined);
-    const isAnim = !(!maWymuszony && (isInactive || streakCount === 0));
-    const info = pobierzPoziomStreaka(streakCount, wymuszonyProg);
+    const isAnim = !(!maWymuszony && !czyZamrozony && (isInactive || streakCount === 0));
+    const info = pobierzPoziomStreaka(streakCount, wymuszonyProg, czyZamrozony);
     const outerCol = isAnim ? info.outer : '#52525b';
     const coreCol = isAnim ? info.core : '#71717a';
+    const extraClass = czyZamrozony ? 'mini-flame-frozen' : '';
 
-    return `<svg class="mini-flame-svg ${isAnim ? '' : 'opacity-50'}" viewBox="0 0 100 120" fill="none">
+    return `<svg class="mini-flame-svg ${extraClass} ${isAnim ? '' : 'opacity-50'}" viewBox="0 0 100 120" fill="none">
         ${isAnim ? `<circle cx="48" cy="9" r="5" fill="${coreCol}"/><rect x="28" y="16" width="14" height="14" rx="3.5" transform="rotate(45 35 23)" fill="${coreCol}"/>` : ''}
-        <path class="${isAnim ? 'mini-outer' : ''}" d="M50 112 C29.5 112 17 98.5 17 78 L17 50 C17 42.5 25.5 39.5 30.8 45.2 L34.2 48.8 C34.8 49.4 35.8 49.2 36.3 48.4 L46 31.5 C49.8 25 58.2 25 62.5 31.5 C73.5 47.5 83 61.5 83 78 C83 98.5 70.5 112 50 112 Z" fill="${outerCol}"/>
-        <path class="${isAnim ? 'mini-core' : ''}" d="M50 97 C39.5 97 33 89.5 33 79.5 C33 72 39 64 46.8 56.5 C48.6 54.8 51.4 54.8 53.2 56.5 C61 64 67 72 67 79.5 C67 89.5 60.5 97 50 97 Z" fill="${coreCol}"/>
+        <path class="${isAnim && !czyZamrozony ? 'mini-outer' : ''}" d="M50 112 C29.5 112 17 98.5 17 78 L17 50 C17 42.5 25.5 39.5 30.8 45.2 L34.2 48.8 C34.8 49.4 35.8 49.2 36.3 48.4 L46 31.5 C49.8 25 58.2 25 62.5 31.5 C73.5 47.5 83 61.5 83 78 C83 98.5 70.5 112 50 112 Z" fill="${outerCol}"/>
+        <path class="${isAnim && !czyZamrozony ? 'mini-core' : ''}" d="M50 97 C39.5 97 33 89.5 33 79.5 C33 72 39 64 46.8 56.5 C48.6 54.8 51.4 54.8 53.2 56.5 C61 64 67 72 67 79.5 C67 89.5 60.5 97 50 97 Z" fill="${coreCol}"/>
     </svg>`;
 }
 
-// --- SYSTEM ODZNAK ---
+// --- MIESIĘCZNE DOŁADOWANIE ZAMROŻEŃ (+1 CO MIESIĄC, SUMUJĄ SIĘ) ---
+function sprawdzMiesiecznyBonusZamrozenia(uid, daneUcznia) {
+    if (!uid || !daneUcznia) return;
+    const obecnyMies = biezacyMiesiacString();
+    const ostMies = daneUcznia.ostatni_miesiac_zamrozenia || '';
+    let obecnaLiczba = (daneUcznia.zamrozenia_liczba !== undefined && daneUcznia.zamrozenia_liczba !== null)
+        ? Number(daneUcznia.zamrozenia_liczba)
+        : 0;
+
+    if (ostMies !== obecnyMies) {
+        obecnaLiczba += 1;
+        daneUcznia.zamrozenia_liczba = obecnaLiczba;
+        daneUcznia.ostatni_miesiac_zamrozenia = obecnyMies;
+        db.ref('uczniowie/' + uid).update({
+            zamrozenia_liczba: obecnaLiczba,
+            ostatni_miesiac_zamrozenia: obecnyMies
+        }).catch(e => console.warn(e));
+    }
+}
+
+// --- UŻYCIE ZAMROŻENIA PRZEZ UCZNIA ---
+window.uzyjZamrozeniaStreaka = function() {
+    if (!zalogowanyUid || !zalogowanyUczen) return;
+    const dzisStr = formatujDateYMD(new Date());
+    const cwiczylDzis = (zalogowanyUczen.ostatnia_aktywnosc === dzisStr);
+
+    if (cwiczylDzis) {
+        pokazAlert("Płomyk już płonie! 🔥", "Dzisiaj masz już zaliczone ćwiczenie — nie musisz zamrażać swojego płomyka!");
+        return;
+    }
+
+    if (czyDzienJestZamrozonyDlaUcznia(dzisStr, zalogowanyUczen)) {
+        pokazAlert("Dzień już zamrożony ❄️", "Dzisiejszy dzień jest już zamrożony! Twoja passa jest bezpieczna (a jeśli poćwiczysz, normalnie nabijesz kolejny dzień).");
+        return;
+    }
+
+    const dostepne = Number(zalogowanyUczen.zamrozenia_liczba) || 0;
+    if (dostepne <= 0) {
+        pokazAlert("Brak zamrożeń ❄️", "Nie masz teraz dostępnych dni zamrożenia. Nowe zamrożenie (+1 ❄️) otrzymasz automatycznie na początku kolejnego miesiąca!");
+        return;
+    }
+
+    pokazConfirm(
+        "Zamrozić dzisiejszy dzień? ❄️",
+        `Zużyjesz 1 zamrożenie (zostanie Ci: ${dostepne - 1} ❄️). Płomyczek zrobi się błękitny i trochę zmarznie, ale passa Ci nie przepadnie! Jeśli jednak dziś poćwiczysz, dzień normalnie doda się do serii.`,
+        () => {
+            const nowaLiczba = Math.max(0, dostepne - 1);
+            if (!zalogowanyUczen.zamrozone_dni) zalogowanyUczen.zamrozone_dni = {};
+            zalogowanyUczen.zamrozone_dni[dzisStr] = true;
+            zalogowanyUczen.zamrozenia_liczba = nowaLiczba;
+
+            const updates = {};
+            updates[`uczniowie/${zalogowanyUid}/zamrozenia_liczba`] = nowaLiczba;
+            updates[`uczniowie/${zalogowanyUid}/zamrozone_dni/${dzisStr}`] = true;
+
+            db.ref().update(updates).then(() => {
+                odswiezDaneProfiluUI();
+                renderujZnajomych();
+                pokazAlert("Płomyk zamrożony! ❄️", "Brrr! Płomykowi zrobiło się zimno, ale Twoja passa jest dzisiaj całkowicie bezpieczna.");
+            }).catch(err => pokazAlert("Błąd bazy", err.message));
+        }
+    );
+};
+
+// --- PEŁNOEKRANOWA CELEBRACJA PO ĆWICZENIU ---
+window.pokazCelebracjeStreaka = function(streakVal, wymusTest = false) {
+    const modal = document.getElementById('modal-celebracja-streaka');
+    if (!modal) return;
+
+    const n = Math.max(1, Number(streakVal) || 1);
+    const wymuszony = zalogowanyUczen ? zalogowanyUczen.wymuszony_kolor_streaka : null;
+    const info = pobierzPoziomStreaka(n, wymuszony, false);
+
+    const outerEl = document.getElementById('celebracja-flame-outer');
+    const coreEl = document.getElementById('celebracja-flame-core');
+    const dotEl = document.getElementById('celebracja-spark-dot');
+    const diamEl = document.getElementById('celebracja-spark-diamond');
+    const liczbaEl = document.getElementById('celebracja-streak-liczba');
+    const slowoEl = document.getElementById('celebracja-streak-slowo');
+    const opisEl = document.getElementById('celebracja-streak-opis');
+
+    if (outerEl) outerEl.setAttribute('fill', info.outer);
+    if (coreEl) coreEl.setAttribute('fill', info.core);
+    if (dotEl) dotEl.setAttribute('fill', info.core);
+    if (diamEl) diamEl.setAttribute('fill', info.core);
+
+    if (liczbaEl) liczbaEl.innerText = n;
+    if (slowoEl) slowoEl.innerText = (n === 1) ? 'dzień passy!' : 'dni passy z rzędu!';
+    if (opisEl) {
+        const minDzis = Number(zalogowanyUczen?.dzisiejsze_minuty) || 0;
+        opisEl.innerText = minDzis > 0
+            ? `Masz już dzisiaj wyćwiczone ${minDzis} min! Płomyczek aż rośnie z dumy.`
+            : `Płomyczek cieszy się z Twojego dzisiejszego ćwiczenia! Tak trzymaj.`;
+    }
+
+    if (navigator.vibrate) navigator.vibrate([100, 60, 160]);
+    pokazEkran('modal-celebracja-streaka', 'flex');
+
+    if (!wymusTest && zalogowanyUid) {
+        const dzisStr = formatujDateYMD(new Date());
+        localStorage.setItem(`posm_celebrated_${zalogowanyUid}_${dzisStr}`, String(n));
+    }
+};
+
+window.zamknijCelebracjeStreaka = function() {
+    ukryjEkran('modal-celebracja-streaka');
+};
+
+function sprawdzCzyPokazacCelebracjePoWejsciu() {
+    if (!zalogowanyUid || !zalogowanyUczen) return;
+    const dzisStr = formatujDateYMD(new Date());
+    const streakCount = Number(zalogowanyUczen.streak) || 0;
+
+    if (zalogowanyUczen.ostatnia_aktywnosc === dzisStr && streakCount > 0) {
+        const klucz = `posm_celebrated_${zalogowanyUid}_${dzisStr}`;
+        const zapamietany = localStorage.getItem(klucz);
+        if (!zapamietany || Number(zapamietany) < streakCount) {
+            setTimeout(() => {
+                pokazCelebracjeStreaka(streakCount, false);
+            }, 450);
+        }
+    }
+}
+
+// --- SYSTEM ODZNAK I PANEL PIOTRA ---
 function pobierzTabliceOdznak(uzytkownikData) {
     if (!uzytkownikData || !uzytkownikData.odznaki) return [];
     if (Array.isArray(uzytkownikData.odznaki)) return uzytkownikData.odznaki.filter(Boolean);
@@ -294,9 +429,56 @@ window.otworzSekretnyPanelPiotra = function() {
         if (obecnaWartosc) sel.value = obecnaWartosc;
     }
 
+    const inpData = document.getElementById('piotr-zamroz-dzien-data');
+    if (inpData && !inpData.value) inpData.value = formatujDateYMD(new Date());
+
+    renderujZamrozoneDniSzkolyPiotr();
     renderujPaleteIkonOdznakPiotr();
     odswiezOdznakiWybranegoUczniaPiotr();
     pokazEkran('modal-sekretny-piotra');
+};
+
+function renderujZamrozoneDniSzkolyPiotr() {
+    const lista = document.getElementById('piotr-zamrozone-dni-lista');
+    if (!lista) return;
+    const daty = Object.keys(zamrozoneDniSzkoly || {}).filter(d => zamrozoneDniSzkoly[d]).sort().reverse();
+    if (daty.length === 0) {
+        lista.innerHTML = `<span class="text-[11px] text-zinc-500 italic">Brak zamrożonych dni szkolnych.</span>`;
+        return;
+    }
+    lista.innerHTML = daty.map(ymd => `
+        <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-950/50 border border-sky-500/30 text-xs text-sky-200">
+            <span>❄️ ${ucieczkaHtml(ymd)}</span>
+            <button type="button" onclick="usunZamrozonyDzienSzkolyPiotr('${ymd}')" class="text-rose-400 hover:text-rose-300 font-bold ml-1" title="Odwołaj zamrożenie">✕</button>
+        </div>
+    `).join('');
+}
+
+window.dodajZamrozonyDzienSzkolyPiotr = function() {
+    const inp = document.getElementById('piotr-zamroz-dzien-data');
+    const ymd = inp ? inp.value : '';
+    if (!ymd) {
+        pokazAlert("Uwaga", "Wybierz datę z kalendarza.");
+        return;
+    }
+    db.ref('zamrozone_dni_szkoly/' + ymd).set(true).then(() => {
+        pokazAlert("Dzień zamrożony ❄️", `Data ${ymd} została zamrożona dla całej szkoły. Nikt nie straci przez ten dzień passy (a ćwiczącym normalnie nabije się dzień!).`);
+    }).catch(e => pokazAlert("Błąd", e.message));
+};
+
+window.usunZamrozonyDzienSzkolyPiotr = function(ymd) {
+    db.ref('zamrozone_dni_szkoly/' + ymd).remove();
+};
+
+window.zmienZamrozeniaUczniaPiotr = function(delta) {
+    const uid = document.getElementById('piotr-odznaka-uczen')?.value;
+    if (!uid || !pelnaBazaUczniow[uid]) return;
+    const obecne = Number(pelnaBazaUczniow[uid].zamrozenia_liczba) || 0;
+    const nowe = Math.max(0, obecne + delta);
+    db.ref(`uczniowie/${uid}/zamrozenia_liczba`).set(nowe).then(() => {
+        pelnaBazaUczniow[uid].zamrozenia_liczba = nowe;
+        odswiezOdznakiWybranegoUczniaPiotr();
+    });
 };
 
 function renderujPaleteIkonOdznakPiotr() {
@@ -316,12 +498,23 @@ window.odswiezOdznakiWybranegoUczniaPiotr = function() {
     const uid = document.getElementById('piotr-odznaka-uczen')?.value;
     const box = document.getElementById('piotr-odznaki-aktualne-box');
     const lista = document.getElementById('piotr-odznaki-aktualne-lista');
-    if (!box || !lista) return;
+    const zamBox = document.getElementById('piotr-zamrozenia-ucznia-box');
+    const zamIlosc = document.getElementById('piotr-uczen-zamrozenia-ilosc');
+
     if (!uid || !pelnaBazaUczniow[uid]) {
-        ukryjEkran('piotr-odznaki-aktualne-box');
+        if (box) ukryjEkran('piotr-odznaki-aktualne-box');
+        if (zamBox) ukryjEkran('piotr-zamrozenia-ucznia-box');
         return;
     }
-    const odznaki = pobierzTabliceOdznak(pelnaBazaUczniow[uid]);
+
+    const u = pelnaBazaUczniow[uid];
+    if (zamBox && zamIlosc) {
+        pokazEkran('piotr-zamrozenia-ucznia-box', 'flex');
+        zamIlosc.innerText = `${Number(u.zamrozenia_liczba) || 0} ❄️`;
+    }
+
+    if (!box || !lista) return;
+    const odznaki = pobierzTabliceOdznak(u);
     if (odznaki.length === 0) {
         ukryjEkran('piotr-odznaki-aktualne-box');
         return;
@@ -431,7 +624,13 @@ window.ustawWymuszonyKolorPlomyka = function(prog) {
     renderujZnajomych();
 };
 
-window.otworzModalPoziomowStreaka = function() { pokazEkran('modal-poziomy-streaka'); };
+window.otworzModalPoziomowStreaka = function() {
+    const el = document.getElementById('modal-streak-liczba-zamrozen');
+    if (el && zalogowanyUczen) {
+        el.innerText = `Dostępne: ${Number(zalogowanyUczen.zamrozenia_liczba) || 0} ❄️`;
+    }
+    pokazEkran('modal-poziomy-streaka');
+};
 window.zamknijModalPoziomowStreaka = function() { ukryjEkran('modal-poziomy-streaka'); };
 
 // --- SYSTEM AWATARÓW ---
@@ -641,20 +840,20 @@ window.zatwierdzDobrowolnaZmianeHasla = async function() {
     }).catch(err => pokazAlert("Błąd bazy", err.message));
 };
 
-// --- LOGIKA STREAKA I ANIMACJA ---
+// --- LOGIKA STREAKA, ZAMROŻENIA I UKRYWANIA PRZY 0 ---
 let streakAnimateTimeout = null;
 let streakAnimateInterval = null;
 
-function aktualizujKolorPoziomuWProfilu(streakCount) {
+function aktualizujKolorPoziomuWProfilu(streakCount, czyZamrozonyDzis = false) {
     const wrapper = document.getElementById('start-streak-wrapper');
     if (!wrapper) return;
     const wymuszony = zalogowanyUczen ? zalogowanyUczen.wymuszony_kolor_streaka : null;
-    wrapper.classList.remove('streak-tier-50', 'streak-tier-100', 'streak-tier-200', 'streak-tier-300', 'streak-tier-350');
-    const info = pobierzPoziomStreaka(streakCount, wymuszony);
+    wrapper.classList.remove('streak-tier-50', 'streak-tier-100', 'streak-tier-200', 'streak-tier-300', 'streak-tier-350', 'streak-frozen');
+    const info = pobierzPoziomStreaka(streakCount, wymuszony, czyZamrozonyDzis);
     if (info.klasa) wrapper.classList.add(info.klasa);
 }
 
-function animujStreakWProfilu(streakCount, isSzary) {
+function animujStreakWProfilu(streakCount, isSzary, czyZamrozonyDzis = false) {
     const fillContainer = document.getElementById('start-streak-icon-fill');
     const countEl = document.getElementById('start-streak-count');
     const wrapper = document.getElementById('start-streak-wrapper');
@@ -662,11 +861,19 @@ function animujStreakWProfilu(streakCount, isSzary) {
     
     clearTimeout(streakAnimateTimeout);
     clearInterval(streakAnimateInterval);
-    aktualizujKolorPoziomuWProfilu(streakCount);
 
     const maWymuszonyKolor = zalogowanyUczen && zalogowanyUczen.wymuszony_kolor_streaka !== undefined && zalogowanyUczen.wymuszony_kolor_streaka !== null;
+
+    // JEŻELI NIE MA PASSY (0 DNI) -> NIE POKAZUJEMY PŁOMYCZKA ANI CYFERKI
+    if (streakCount <= 0 && !maWymuszonyKolor) {
+        ukryjEkran('start-streak-wrapper');
+        return;
+    }
+
+    pokazEkran('start-streak-wrapper', 'flex');
+    aktualizujKolorPoziomuWProfilu(streakCount, czyZamrozonyDzis);
     
-    if (!maWymuszonyKolor && (isSzary || streakCount === 0)) {
+    if (!maWymuszonyKolor && !czyZamrozonyDzis && isSzary) {
         wrapper.classList.add('streak-lost');
         wrapper.classList.remove('streak-active');
         countEl.innerText = streakCount;
@@ -702,12 +909,12 @@ function animujStreakWProfilu(streakCount, isSzary) {
                     const currentVal = Math.floor(ease * streakCount);
                     
                     countEl.innerText = currentVal;
-                    aktualizujKolorPoziomuWProfilu(currentVal);
+                    aktualizujKolorPoziomuWProfilu(currentVal, czyZamrozonyDzis);
                     
                     if (currentStep >= totalSteps) {
                         clearInterval(streakAnimateInterval);
                         countEl.innerText = streakCount;
-                        aktualizujKolorPoziomuWProfilu(streakCount);
+                        aktualizujKolorPoziomuWProfilu(streakCount, czyZamrozonyDzis);
                         fillContainer.style.clipPath = 'none';
                         czyStreakBylAnimowany = true;
                     }
@@ -734,10 +941,11 @@ function przeliczStatusStreaka() {
     
     const dzis = new Date();
     dzis.setHours(0,0,0,0);
+    const dzisStr = formatujDateYMD(dzis);
     
     const ostAktywnoscStr = zalogowanyUczen.ostatnia_aktywnosc;
     let streakCount = Number(zalogowanyUczen.streak) || 0;
-    let minutyDzis = Number(zalogowanyUczen.dzisiejsze_minuty) || 0;
+    let minutyDzis = (ostAktywnoscStr === dzisStr) ? (Number(zalogowanyUczen.dzisiejsze_minuty) || 0) : 0;
     let pominieteDni = 0;
     
     if (ostAktywnoscStr) {
@@ -747,7 +955,7 @@ function przeliczStatusStreaka() {
             ostAkt.setHours(0,0,0,0);
             let wczoraj = new Date(dzis);
             wczoraj.setDate(wczoraj.getDate() - 1);
-            if (ostAkt < wczoraj) pominieteDni = dniRoboczePomiedzy(ostAkt, wczoraj);
+            if (ostAkt < wczoraj) pominieteDni = dniRoboczePomiedzy(ostAkt, wczoraj, zalogowanyUczen);
         }
     }
     
@@ -758,12 +966,26 @@ function przeliczStatusStreaka() {
         db.ref('uczniowie/' + zalogowanyUid).update({ streak: 0, ostatnia_aktywnosc: null, dzisiejsze_minuty: 0 });
     }
 
-    const isSzary = pominieteDni > 0;
-    if (aktywnaZakladkaId === 'start') animujStreakWProfilu(streakCount, isSzary);
+    const cwiczylDzis = (ostAktywnoscStr === dzisStr);
+    const czyZamrozonyDzis = !cwiczylDzis && czyDzienJestZamrozonyDlaUcznia(dzisStr, zalogowanyUczen);
+    const isSzary = pominieteDni > 0 && !czyZamrozonyDzis;
+
+    // Aktualizacja przycisku zamrożenia w profilu
+    const elLiczbaZamrozen = document.getElementById('start-liczba-zamrozen');
+    const elTekstZamroz = document.getElementById('start-tekst-zamroz');
+    if (elLiczbaZamrozen) elLiczbaZamrozen.innerText = Number(zalogowanyUczen.zamrozenia_liczba) || 0;
+    if (elTekstZamroz) {
+        if (czyZamrozonyDzis) elTekstZamroz.innerText = 'Zamrożony dziś 🥶';
+        else if (cwiczylDzis) elTekstZamroz.innerText = 'Zaliczono dziś 🔥';
+        else elTekstZamroz.innerText = 'Zamroź dziś';
+    }
+
+    if (aktywnaZakladkaId === 'start') animujStreakWProfilu(streakCount, isSzary, czyZamrozonyDzis);
+    sprawdzCzyPokazacCelebracjePoWejsciu();
     
     const panelOdnowy = document.getElementById('panel-odnowy-streaka');
     if (panelOdnowy) {
-        if (isSzary && streakCount > 0) {
+        if (pominieteDni > 0 && streakCount > 0) {
             panelOdnowy.classList.remove('hidden');
             const wymaganeMinuty = pominieteDni * 60;
             const procent = Math.min(100, Math.round((minutyDzis / wymaganeMinuty) * 100));
@@ -840,8 +1062,7 @@ window.przelaczZakladkeUcznia = function(nazwa) {
         setTimeout(() => {
             isTabAnimating = false;
             if (nazwa === 'start') {
-                const isSzary = document.getElementById('panel-odnowy-streaka') && !document.getElementById('panel-odnowy-streaka').classList.contains('hidden');
-                animujStreakWProfilu(Number(zalogowanyUczen.streak) || 0, isSzary);
+                przeliczStatusStreaka();
             }
         }, 300);
 
@@ -945,6 +1166,7 @@ window.zalogujUcznia = async function() {
             db.ref('uczniowie/' + znUid + '/ustawienia_prywatnosci').set(znDane.ustawienia_prywatnosci).catch(e=>console.log(e));
         }
         
+        sprawdzMiesiecznyBonusZamrozenia(znUid, znDane);
         zalogowanyUid = znUid; zalogowanyUczen = znDane; czyStreakBylAnimowany = false;
         ulubioneSale = znDane.ulubione ? Object.values(znDane.ulubione).filter(Boolean) : [];
         ustawieniaPush = znDane.powiadomienia || { ulubione: false, ankiety: false, propozycje: false };
@@ -991,6 +1213,7 @@ window.addEventListener('DOMContentLoaded', () => {
                     dane.ustawienia_prywatnosci = { pokazuj_sale: true, pokazuj_w_rankingu: false };
                     db.ref('uczniowie/' + zUid + '/ustawienia_prywatnosci').set(dane.ustawienia_prywatnosci).catch(e=>console.log(e));
                 }
+                sprawdzMiesiecznyBonusZamrozenia(zUid, dane);
                 zalogowanyUid = zUid; zalogowanyUczen = dane; 
                 ulubioneSale = dane.ulubione ? Object.values(dane.ulubione).filter(Boolean) : []; 
                 ustawieniaPush = dane.powiadomienia || { ulubione: false, ankiety: false, propozycje: false };
@@ -1013,9 +1236,7 @@ function odswiezDaneProfiluUI() {
         const i1 = zalogowanyUczen.instrument || '-';
         const i2 = (zalogowanyUczen.instrument2 || zalogowanyUczen.instrument_2 || zalogowanyUczen.drugi_instrument || '').trim();
         const czesciImienia = (zalogowanyUczen.imie_nazwisko || 'Uczeń').split(' ');
-        let krotkaNazwa = czesciImienia[0];
-        if (czesciImienia.length > 1) krotkaNazwa += ' ' + czesciImienia[czesciImienia.length - 1]; 
-        if (krotkaNazwa.length > 18) krotkaNazwa = krotkaNazwa.substring(0, 15) + '...';
+        const krotkaNazwa = sformatujImieINazwiskoKropka(zalogowanyUczen.imie_nazwisko);
         
         document.getElementById('nav-uczen-info').innerText = krotkaNazwa + ' (' + (zalogowanyUczen.klasa || '-') + ')';
         document.getElementById('start-powitanie').innerText = czesciImienia[0];
@@ -1060,7 +1281,7 @@ function odswiezDaneProfiluUI() {
     } catch (e) { console.error("Błąd odświeżania profilu: ", e); }
 }
 
-// --- PODIUM TYGODNIA I STATYSTYKI TYGODNIOWE (PEŁNA TABELA WSZYSTKICH UCZNIÓW) ---
+// --- PODIUM TYGODNIA (TOP 5 + TWÓJ WYNIK NA DOLE NAWET GDY ODZNACZONE) ---
 function pobierzPoniedzialekTygodniaStr() {
     const teraz = new Date();
     const dzien = teraz.getDay();
@@ -1113,6 +1334,49 @@ function pobierzMinutyTygodnioweUcznia(daneUcznia) {
     return Math.max(zLogow, dzisMin);
 }
 
+function wyrenderujWierszPodiumHtml(item, miejsce, czyDolnyWiersz = false) {
+    const isMe = (item.uid === zalogowanyUid);
+    const nazwa = sformatujImieINazwiskoKropka(item.u.imie_nazwisko);
+    const instr = item.u.instrument || '';
+    
+    const h = Math.floor(item.minuty / 60);
+    const m = item.minuty % 60;
+    const czasTxt = h > 0 ? `${h}h ${m}m` : `${m} min`;
+
+    let znaczekMiejsca = miejsce
+        ? `<span class="w-7 text-center text-xs font-extrabold text-zinc-500">#${miejsce}</span>`
+        : `<span class="w-7 text-center text-xs font-extrabold text-indigo-300">Ty</span>`;
+    let stylWiersza = isMe ? 'border-indigo-500/40 bg-indigo-500/10' : 'border-white/5 bg-zinc-900/40';
+
+    if (miejsce === 1) {
+        znaczekMiejsca = `<span class="w-7 text-center text-base leading-none">🥇</span>`;
+        if (!isMe) stylWiersza = 'border-yellow-400/30 bg-yellow-500/5';
+    } else if (miejsce === 2) {
+        znaczekMiejsca = `<span class="w-7 text-center text-base leading-none">🥈</span>`;
+        if (!isMe) stylWiersza = 'border-zinc-400/25 bg-zinc-800/40';
+    } else if (miejsce === 3) {
+        znaczekMiejsca = `<span class="w-7 text-center text-base leading-none">🥉</span>`;
+        if (!isMe) stylWiersza = 'border-amber-600/25 bg-amber-950/20';
+    }
+
+    const dopisekPoza = (!miejsce && czyDolnyWiersz) ? ' • poza tabelą' : '';
+
+    return `
+    <div class="px-3.5 py-2.5 rounded-xl border ${stylWiersza} flex items-center justify-between gap-3 transition-colors">
+        <div class="flex items-center gap-3 min-w-0">
+            ${znaczekMiejsca}
+            <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-white/10 flex items-center justify-center overflow-hidden shrink-0 text-[11px] font-bold text-white">
+                ${wyrenderujWnetrzeAvataru(item.u, 'text-[11px]')}
+            </div>
+            <div class="flex items-center gap-2 min-w-0 flex-wrap">
+                <span class="text-xs sm:text-sm font-bold ${isMe ? 'text-indigo-300' : 'text-white'}">${ucieczkaHtml(nazwa)}${isMe ? ' (Ty)' : ''}${dopisekPoza}</span>
+                ${instr ? `<span class="text-[10px] text-zinc-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/5 hidden sm:inline-block">${ucieczkaHtml(instr)}</span>` : ''}
+            </div>
+        </div>
+        <span class="text-xs font-black text-emerald-300 shrink-0">${czasTxt}</span>
+    </div>`;
+}
+
 function renderujPodiumTygodnia() {
     const kon = document.getElementById('podium-tygodnia-render');
     if (!kon) return;
@@ -1131,51 +1395,32 @@ function renderujPodiumTygodnia() {
         return (Number(b.u.streak) || 0) - (Number(a.u.streak) || 0);
     });
 
-    if (kandydaci.length === 0) {
-        kon.innerHTML = `<div class="text-xs text-zinc-500 text-center py-4">Brak osób w tabeli. Możesz dołączyć do rankingu w ustawieniach prywatności.</div>`;
-        return;
+    // Tylko TOP 5 osób na głównym podium
+    const top5 = kandydaci.slice(0, 5);
+    const czyJestemWTop5 = top5.some(k => k.uid === zalogowanyUid);
+    const mojIndexWKandydatach = kandydaci.findIndex(k => k.uid === zalogowanyUid);
+    const mojeMiejsce = mojIndexWKandydatach !== -1 ? (mojIndexWKandydatach + 1) : null;
+
+    let html = '';
+    if (top5.length === 0) {
+        html += `<div class="text-xs text-zinc-500 text-center py-3">Brak osób w TOP 5. Możesz dołączyć do rankingu w ustawieniach prywatności.</div>`;
+    } else {
+        html += top5.map((item, idx) => wyrenderujWierszPodiumHtml(item, idx + 1, false)).join('');
     }
 
-    kon.innerHTML = kandydaci.map((item, idx) => {
-        const miejsce = idx + 1;
-        const isMe = (item.uid === zalogowanyUid);
-        const cz = item.u.imie_nazwisko.split(' ');
-        const nazwa = cz.length > 1 ? `${cz[0]} ${cz[cz.length - 1]}` : cz[0];
-        const instr = item.u.instrument || '';
-        
-        const h = Math.floor(item.minuty / 60);
-        const m = item.minuty % 60;
-        const czasTxt = h > 0 ? `${h}h ${m}m` : `${m} min`;
-
-        let znaczekMiejsca = `<span class="w-7 text-center text-xs font-extrabold text-zinc-500">#${miejsce}</span>`;
-        let stylWiersza = isMe ? 'border-indigo-500/40 bg-indigo-500/10' : 'border-white/5 bg-zinc-900/40';
-
-        if (miejsce === 1) {
-            znaczekMiejsca = `<span class="w-7 text-center text-base leading-none">🥇</span>`;
-            if (!isMe) stylWiersza = 'border-yellow-400/30 bg-yellow-500/5';
-        } else if (miejsce === 2) {
-            znaczekMiejsca = `<span class="w-7 text-center text-base leading-none">🥈</span>`;
-            if (!isMe) stylWiersza = 'border-zinc-400/25 bg-zinc-800/40';
-        } else if (miejsce === 3) {
-            znaczekMiejsca = `<span class="w-7 text-center text-base leading-none">🥉</span>`;
-            if (!isMe) stylWiersza = 'border-amber-600/25 bg-amber-950/20';
-        }
-
-        return `
-        <div class="px-3.5 py-2.5 rounded-xl border ${stylWiersza} flex items-center justify-between gap-3 transition-colors">
-            <div class="flex items-center gap-3 min-w-0">
-                ${znaczekMiejsca}
-                <div class="w-8 h-8 rounded-lg bg-zinc-900 border border-white/10 flex items-center justify-center overflow-hidden shrink-0 text-[11px] font-bold text-white">
-                    ${wyrenderujWnetrzeAvataru(item.u, 'text-[11px]')}
-                </div>
-                <div class="flex items-center gap-2 min-w-0 flex-wrap">
-                    <span class="text-xs sm:text-sm font-bold ${isMe ? 'text-indigo-300' : 'text-white'} truncate">${ucieczkaHtml(nazwa)}${isMe ? ' (Ty)' : ''}</span>
-                    ${instr ? `<span class="text-[10px] text-zinc-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/5 hidden sm:inline-block">${ucieczkaHtml(instr)}</span>` : ''}
-                </div>
+    // Jeśli nie ma nas w TOP 5 (bo mamy za mało minut lub wyłączoną zgodę na ranking) -> zawsze pokazujemy nasz wynik na samym dole
+    if (!czyJestemWTop5 && zalogowanyUczen) {
+        const mojeMinuty = pobierzMinutyTygodnioweUcznia(zalogowanyUczen);
+        const mojObiekt = { uid: zalogowanyUid, u: zalogowanyUczen, minuty: mojeMinuty };
+        html += `
+            <div class="pt-2 mt-1 border-t border-dashed border-white/15 flex flex-col gap-1">
+                <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider px-1">Twój czas w tym tygodniu</span>
+                ${wyrenderujWierszPodiumHtml(mojObiekt, mojeMiejsce, true)}
             </div>
-            <span class="text-xs font-black text-emerald-300 shrink-0">${czasTxt}</span>
-        </div>`;
-    }).join('');
+        `;
+    }
+
+    kon.innerHTML = html;
 }
 
 function uruchomWidokTablicy() {
@@ -1189,6 +1434,13 @@ function uruchomWidokTablicy() {
         nasluchujZmianSal(); 
         nasluchujAnkietIPropozycji();
         odswiezStatystykiTygodniowe();
+
+        db.ref('zamrozone_dni_szkoly').on('value', snap => {
+            zamrozoneDniSzkoly = snap.val() || {};
+            try { przeliczStatusStreaka(); } catch(e) {}
+            try { renderujZamrozoneDniSzkolyPiotr(); } catch(e) {}
+            if (!trwaAnimacjaZaczepki) { try { renderujZnajomych(); } catch(e) {} }
+        });
         
         db.ref('uczniowie').on('value', snap => {
             pelnaBazaUczniow = snap.val() || {};
@@ -1359,7 +1611,7 @@ window.zmienSortowanieZnajomych = function(tryb) {
     renderujZnajomych();
 };
 
-// --- WIZYTÓWKA ZNAJOMEGO (SAMA CYFRA W SERII + ODZNAKI + POJEDYNEK 1V1) ---
+// --- WIZYTÓWKA ZNAJOMEGO (SAMA CYFRA LUB "BRAK", ODZNAKI + POJEDYNEK 1V1) ---
 window.otworzProfilZnajomego = function(uid) {
     const u = pelnaBazaUczniow[uid];
     if (!u) return;
@@ -1367,7 +1619,7 @@ window.otworzProfilZnajomego = function(uid) {
     const avBox = document.getElementById('znajomy-modal-avatar');
     if (avBox) avBox.innerHTML = wyrenderujWnetrzeAvataru(u, 'text-2xl');
 
-    document.getElementById('znajomy-modal-imie').innerText = u.imie_nazwisko || 'Uczeń';
+    document.getElementById('znajomy-modal-imie').innerText = sformatujImieINazwiskoKropka(u.imie_nazwisko);
     document.getElementById('znajomy-modal-klasa').innerText = u.klasa ? `Klasa ${u.klasa}` : '-';
 
     const odznakiBox = document.getElementById('znajomy-modal-odznaki');
@@ -1391,11 +1643,17 @@ window.otworzProfilZnajomego = function(uid) {
     const dzisStr = formatujDateYMD(dzis);
     const znStreak = Number(u.streak) || 0;
     const dzisMin = (u.ostatnia_aktywnosc === dzisStr) ? (Number(u.dzisiejsze_minuty) || 0) : 0;
+    const czyZamrozonyZn = (u.ostatnia_aktywnosc !== dzisStr) && czyDzienJestZamrozonyDlaUcznia(dzisStr, u);
 
-    const tierInfo = pobierzPoziomStreaka(znStreak, u.wymuszony_kolor_streaka);
+    const tierInfo = pobierzPoziomStreaka(znStreak, u.wymuszony_kolor_streaka, czyZamrozonyZn);
     const streakEl = document.getElementById('znajomy-modal-streak');
-    streakEl.className = `text-lg font-black ${tierInfo.textClass} mt-0.5 block`;
-    streakEl.innerText = String(znStreak);
+    if (znStreak > 0) {
+        streakEl.className = `text-lg font-black ${tierInfo.textClass} mt-0.5 block`;
+        streakEl.innerText = czyZamrozonyZn ? `${znStreak} ❄️` : String(znStreak);
+    } else {
+        streakEl.className = `text-sm font-bold text-zinc-500 mt-0.5 block`;
+        streakEl.innerText = 'Brak';
+    }
 
     document.getElementById('znajomy-modal-dzis').innerText = `${dzisMin} min`;
 
@@ -1431,7 +1689,7 @@ window.otworzProfilZnajomego = function(uid) {
 
 window.zamknijProfilZnajomego = function() { ukryjEkran('modal-profil-znajomego'); };
 
-// --- SYSTEM ZACZEPEK (BEZ OPISÓW I BEZ PYTANIA O SALĘ) ---
+// --- SYSTEM ZACZEPEK ---
 function odtworzAnimacjeZaczepkiNaKafelku(uid, opcja, tryb) {
     const tile = document.getElementById('friend-tile-' + uid);
     const avatar = document.getElementById('friend-avatar-' + uid);
@@ -1627,7 +1885,7 @@ function renderujZnajomych() {
             <div class="glass-panel p-4 flex justify-between items-center bg-indigo-900/20 border border-indigo-500/30 shadow-lg">
                 <div>
                     <span class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest block mb-0.5">Nowe Zaproszenie</span>
-                    <span class="font-bold text-white text-sm">${ucieczkaHtml(daneUcznia.imie_nazwisko)}</span>
+                    <span class="font-bold text-white text-sm">${ucieczkaHtml(sformatujImieINazwiskoKropka(daneUcznia.imie_nazwisko))}</span>
                 </div>
                 <div class="flex gap-2">
                     <button onclick="odpowiedzNaZaproszenie('${uId}', true)" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-colors">Akceptuj</button>
@@ -1649,7 +1907,7 @@ function renderujZnajomych() {
                 if (!daneUcznia) return '';
                 return `
                 <div class="px-4 py-2.5 rounded-xl bg-zinc-900/50 border border-white/5 flex justify-between items-center text-xs">
-                    <span class="text-zinc-400">Oczekujące zaproszenie: <strong class="text-zinc-200">${ucieczkaHtml(daneUcznia.imie_nazwisko)}</strong></span>
+                    <span class="text-zinc-400">Oczekujące zaproszenie: <strong class="text-zinc-200">${ucieczkaHtml(sformatujImieINazwiskoKropka(daneUcznia.imie_nazwisko))}</strong></span>
                     <button onclick="anulujWyslaneZaproszenie('${uId}')" class="text-[11px] font-bold text-zinc-500 hover:text-rose-400 transition-colors">Cofnij</button>
                 </div>`;
             }).join('');
@@ -1696,21 +1954,23 @@ function renderujZnajomych() {
                 ostAkt.setHours(0,0,0,0);
                 let wczoraj = new Date(dzis);
                 wczoraj.setDate(wczoraj.getDate() - 1);
-                if (ostAkt < wczoraj) pominiete = dniRoboczePomiedzy(ostAkt, wczoraj);
+                if (ostAkt < wczoraj) pominiete = dniRoboczePomiedzy(ostAkt, wczoraj, daneUcznia);
             }
         }
         if (pominiete > 2) znStreak = 0;
 
         const czesciImienia = (daneUcznia.imie_nazwisko || 'Uczeń').split(' ');
         const sameImie = czesciImienia[0];
-        const krotkieImieNazwisko = czesciImienia.length > 1 ? `${czesciImienia[0]} ${czesciImienia[czesciImienia.length - 1]}` : sameImie;
+        // ZAWSZE Imię i 1 litera nazwiska (np. "Aleksandra K.")
+        const imieNazwiskoKropka = sformatujImieINazwiskoKropka(daneUcznia.imie_nazwisko);
         const instr = daneUcznia.instrument || '';
         const pozostalyCzas = obliczPozostalyCzasZaczepki(uId);
+        const czyZamrozonyDzis = !cwiczylDzisiaj && czyDzienJestZamrozonyDlaUcznia(dzisStr, daneUcznia);
 
         paczkiDoRenderu.push({
-            uId, daneUcznia, sameImie, krotkieImieNazwisko, instr, obecnaSala, minutyWSaliTeraz,
+            uId, daneUcznia, sameImie, imieNazwiskoKropka, instr, obecnaSala, minutyWSaliTeraz,
             ukrywajSale: daneUcznia.ustawienia_prywatnosci ? daneUcznia.ustawienia_prywatnosci.pokazuj_sale === false : false,
-            znStreak, pominiete, cwiczylDzisiaj, dzisMinuty, pozostalyCzas
+            znStreak, pominiete, cwiczylDzisiaj, dzisMinuty, pozostalyCzas, czyZamrozonyDzis
         });
     });
 
@@ -1740,6 +2000,8 @@ function renderujZnajomych() {
             trybZaczepki = 'brawa';
             domyslnyPrzyciskKlasy = 'btn-classic-secondary';
             domyslnyTekstPrzycisku = 'Zaczep 👋';
+        } else if (item.czyZamrozonyDzis && item.znStreak > 0) {
+            statusBadge = `<span class="flex items-center gap-1.5 text-xs text-sky-300"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>Płomyk zamrożony na dziś ❄️</span>`;
         } else if (item.pominiete > 0 && item.znStreak > 0) {
             statusBadge = `<span class="flex items-center gap-1.5 text-xs text-amber-400/90"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>Seria zagrożona</span>`;
         }
@@ -1756,25 +2018,29 @@ function renderujZnajomych() {
         }
 
         const wymuszonyKolor = item.daneUcznia.wymuszony_kolor_streaka;
-        const isInactive = (wymuszonyKolor === null || wymuszonyKolor === undefined) && (item.pominiete > 0 || item.znStreak === 0);
-        const tierInfo = pobierzPoziomStreaka(item.znStreak, wymuszonyKolor);
+        const isInactive = (wymuszonyKolor === null || wymuszonyKolor === undefined) && !item.czyZamrozonyDzis && (item.pominiete > 0 || item.znStreak === 0);
+        const tierInfo = pobierzPoziomStreaka(item.znStreak, wymuszonyKolor, item.czyZamrozonyDzis);
         const kolorLiczby = isInactive ? 'text-zinc-500' : tierInfo.textClass;
-        const streakWizualny = `<span class="inline-flex items-center gap-1 font-bold text-xs ${kolorLiczby}">${generujMiniPlomykSvg(item.znStreak, isInactive, wymuszonyKolor)} ${item.znStreak}</span>`;
+
+        // Gdy znStreak === 0 -> NIE POKAZUJEMY PŁOMYCZKA ANI CYFERKI
+        const streakWizualny = (item.znStreak > 0 || (wymuszonyKolor !== null && wymuszonyKolor !== undefined))
+            ? `<span class="inline-flex items-center gap-1 font-bold text-xs ${kolorLiczby} shrink-0">${generujMiniPlomykSvg(item.znStreak, isInactive, wymuszonyKolor, item.czyZamrozonyDzis)} ${item.znStreak}${item.czyZamrozonyDzis ? ' ❄️' : ''}</span>`
+            : '';
 
         const odznakiZn = pobierzTabliceOdznak(item.daneUcznia).slice(0, 3);
         const odznakiHtml = odznakiZn.length > 0
-            ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[11px]" title="${ucieczkaHtml(odznakiZn.map(o => o.tytul).join(', '))}">${odznakiZn.map(o => ucieczkaHtml(o.ikona)).join('')}</span>`
+            ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[11px] shrink-0" title="${ucieczkaHtml(odznakiZn.map(o => o.tytul).join(', '))}">${odznakiZn.map(o => ucieczkaHtml(o.ikona)).join('')}</span>`
             : '';
 
         return `
-        <div id="friend-tile-${item.uId}" class="flex items-center justify-between gap-3 p-3.5 bg-zinc-900/40 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+        <div id="friend-tile-${item.uId}" class="flex items-center justify-between gap-2.5 p-3.5 bg-zinc-900/40 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
             <div onclick="otworzProfilZnajomego('${item.uId}')" class="flex items-center gap-3 min-w-0 relative z-10 cursor-pointer group">
                 <div id="friend-avatar-${item.uId}" class="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-200 border border-white/10 shrink-0 overflow-hidden shadow-inner group-hover:border-indigo-400/50 transition-colors">
                     ${wyrenderujWnetrzeAvataru(item.daneUcznia, 'text-xs')}
                 </div>
                 <div class="flex flex-col min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <span class="font-bold text-white group-hover:text-indigo-300 transition-colors text-sm truncate" id="nazwa-znajomego-${item.uId}">${ucieczkaHtml(item.krotkieImieNazwisko)}</span>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="font-bold text-white group-hover:text-indigo-300 transition-colors text-sm whitespace-nowrap" id="nazwa-znajomego-${item.uId}">${ucieczkaHtml(item.imieNazwiskoKropka)}</span>
                         ${streakWizualny}
                         ${odznakiHtml}
                         ${item.instr ? `<span class="text-[10px] text-zinc-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/5 hidden sm:inline-block">${ucieczkaHtml(item.instr)}</span>` : ''}
@@ -1782,7 +2048,7 @@ function renderujZnajomych() {
                     <div class="mt-0.5">${statusBadge}</div>
                 </div>
             </div>
-            <div class="flex items-center gap-2 shrink-0 relative z-10">
+            <div class="flex items-center gap-1.5 shrink-0 relative z-10">
                 ${actionBtn}
                 <button onclick="usunZnajomego('${item.uId}')" class="text-[10px] text-zinc-500 hover:text-rose-400 font-bold px-1.5 py-1 uppercase tracking-wider transition-colors">Usuń</button>
             </div>
@@ -2195,7 +2461,7 @@ window.otworzModalSali = function(nr) {
                 </div>
                 <div class="flex-grow min-w-0">
                     <span class="text-[10px] font-bold text-indigo-300 uppercase tracking-wider block">Twój znajomy w sali</span>
-                    <span class="text-xs font-bold text-white truncate block">${ucieczkaHtml(znajomy.uczen.imie_nazwisko)}${minuty > 0 ? ` • od ${minuty} min` : ''}</span>
+                    <span class="text-xs font-bold text-white truncate block">${ucieczkaHtml(sformatujImieINazwiskoKropka(znajomy.uczen.imie_nazwisko))}${minuty > 0 ? ` • od ${minuty} min` : ''}</span>
                 </div>
                 <button type="button" onclick="zamknijModalSali(); otworzProfilZnajomego('${znajomy.uid}')" class="px-3 py-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 text-xs font-bold shrink-0">Profil</button>
             `;

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="pl" class="overflow-x-hidden">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
@@ -507,7 +507,39 @@
         </div>
     </div>
 
-    <!-- UKRYTY MODAL NARZĘDZI PIOTRA (KOLORY, WRAPPED, KREATOR ODZNAK) -->
+    <!-- PEŁNOEKRANOWA ANIMACJA ŚWIĘTOWANIA PASSY PO ĆWICZENIU -->
+    <div id="modal-celebracja-streaka" class="fixed inset-0 z-[998] celebration-backdrop hidden flex-col items-center justify-center p-6 text-center select-none">
+        <div class="relative flex flex-col items-center max-w-sm w-full">
+            <div class="celebration-flame-box mb-4 relative flex items-center justify-center">
+                <div id="celebracja-glow-bg" class="absolute w-40 h-40 rounded-full bg-amber-500/25 blur-3xl pointer-events-none"></div>
+                <svg class="w-36 h-44 overflow-visible relative z-10" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle id="celebracja-spark-dot" class="duo-spark-dot" cx="48" cy="9" r="5" fill="#ffc800"/>
+                    <g class="duo-spark-diamond">
+                        <rect id="celebracja-spark-diamond" x="28" y="16" width="14" height="14" rx="3.5" transform="rotate(45 35 23)" fill="#ffc800"/>
+                    </g>
+                    <g class="celebration-flame-happy">
+                        <path id="celebracja-flame-outer" d="M50 112 C29.5 112 17 98.5 17 78 L17 50 C17 42.5 25.5 39.5 30.8 45.2 L34.2 48.8 C34.8 49.4 35.8 49.2 36.3 48.4 L46 31.5 C49.8 25 58.2 25 62.5 31.5 C73.5 47.5 83 61.5 83 78 C83 98.5 70.5 112 50 112 Z" fill="#ff9600"/>
+                        <path id="celebracja-flame-core" d="M50 97 C39.5 97 33 89.5 33 79.5 C33 72 39 64 46.8 56.5 C48.6 54.8 51.4 54.8 53.2 56.5 C61 64 67 72 67 79.5 C67 89.5 60.5 97 50 97 Z" fill="#ffc800"/>
+                        <!-- Radosne oczka i uśmiech płomyka -->
+                        <circle cx="43" cy="77" r="2.6" fill="#18181b"/>
+                        <circle cx="57" cy="77" r="2.6" fill="#18181b"/>
+                        <path d="M44 83 Q50 88 56 83" stroke="#18181b" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+                    </g>
+                </svg>
+            </div>
+
+            <span class="emblem emblem-amber mb-2 animate-fade-in">Trening zaliczony!</span>
+            <div class="text-6xl sm:text-7xl font-black text-white tracking-tight mb-1 drop-shadow-xl animate-fade-in" id="celebracja-streak-liczba">1</div>
+            <p class="text-base sm:text-lg font-extrabold text-amber-300 uppercase tracking-widest mb-3 animate-fade-in" id="celebracja-streak-slowo">dzień passy!</p>
+            <p class="text-xs sm:text-sm text-zinc-300 max-w-xs leading-relaxed mb-8 animate-fade-in" id="celebracja-streak-opis">Płomyczek aż podskakuje z radości! Oby tak dalej.</p>
+
+            <button type="button" onclick="zamknijCelebracjeStreaka()" class="btn-classic-primary w-full py-4 rounded-2xl font-extrabold text-sm shadow-2xl animate-fade-in">
+                Super! Lecimy dalej 🔥
+            </button>
+        </div>
+    </div>
+
+    <!-- UKRYTY MODAL NARZĘDZI PIOTRA (KOLORY, WRAPPED, ZAMROŻENIA, KREATOR ODZNAK) -->
     <div id="modal-sekretny-piotra" class="fixed inset-0 z-[992] modal-overlay hidden items-center justify-center p-4">
         <div class="glass-panel p-6 sm:p-7 w-full max-w-lg relative flex flex-col gap-4 animate-scale-in max-h-[90vh] overflow-y-auto no-scrollbar">
             <button onclick="ukryjEkran('modal-sekretny-piotra')" class="absolute top-3.5 right-4 text-zinc-400 hover:text-white text-2xl leading-none p-1">&times;</button>
@@ -530,20 +562,50 @@
             </div>
 
             <div class="pt-3 border-t border-white/10 flex flex-col gap-2">
-                <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Podsumowanie aktywności</label>
-                <button type="button" onclick="ukryjEkran('modal-sekretny-piotra'); uruchomWrapped(biezacyMiesiacString(), this)" class="btn-classic-primary w-full py-3 rounded-xl font-bold text-xs">
-                    Uruchom Solna Wrapped (Bieżący miesiąc) &rarr;
-                </button>
+                <label class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Podsumowanie aktywności i testy</label>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <button type="button" onclick="ukryjEkran('modal-sekretny-piotra'); uruchomWrapped(biezacyMiesiacString(), this)" class="btn-classic-primary flex-1 py-3 rounded-xl font-bold text-xs">
+                        Solna Wrapped (Ten miesiąc) &rarr;
+                    </button>
+                    <button type="button" onclick="ukryjEkran('modal-sekretny-piotra'); pokazCelebracjeStreaka(Number(zalogowanyUczen?.streak) || 1, true)" class="btn-classic-secondary px-4 py-3 rounded-xl font-bold text-xs">
+                        Test animacji płomyka 🔥
+                    </button>
+                </div>
             </div>
 
-            <!-- KREATOR ODZNAK DLA UCZNIÓW -->
+            <!-- ZAMRAŻANIE DNI DLA CAŁEJ SZKOŁY (JAK WEEKEND) -->
+            <div class="pt-3 border-t border-white/10 flex flex-col gap-2.5">
+                <label class="text-[10px] font-bold text-sky-400 uppercase tracking-wider block">Zamroź dzień dla całej szkoły (Święto / Dzień wolny ❄️)</label>
+                <p class="text-[11px] text-zinc-400 leading-relaxed">W zamrożony dzień passa nikomu nie przepada (tak samo jak w weekend). Jeśli ktoś jednak poćwiczy — normalnie nabije sobie kolejny dzień!</p>
+                <div class="flex gap-2">
+                    <input type="date" id="piotr-zamroz-dzien-data" class="input-classic flex-1 rounded-xl px-3.5 py-2.5 text-xs">
+                    <button type="button" onclick="dodajZamrozonyDzienSzkolyPiotr()" class="px-4 py-2.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-200 font-bold text-xs shrink-0 transition-colors">
+                        Zamroź dzień ❄️
+                    </button>
+                </div>
+                <div id="piotr-zamrozone-dni-lista" class="flex flex-wrap gap-1.5 pt-1"></div>
+            </div>
+
+            <!-- KREATOR ODZNAK ORAZ DODAWANIE ZAMROŻEŃ UCZNIOM -->
             <div class="pt-3 border-t border-white/10 flex flex-col gap-3">
                 <div class="flex items-center justify-between">
-                    <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Nadaj odznakę uczniowi</label>
+                    <label class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Zarządzaj uczniem (Odznaki i Zamrożenia ❄️)</label>
                 </div>
                 <select id="piotr-odznaka-uczen" onchange="odswiezOdznakiWybranegoUczniaPiotr()" class="input-classic w-full rounded-xl px-3.5 py-2.5 text-xs font-semibold">
                     <option value="">Wybierz ucznia...</option>
                 </select>
+
+                <!-- PULA ZAMROŻEŃ WYBRANEGO UCZNIA -->
+                <div id="piotr-zamrozenia-ucznia-box" class="hidden items-center justify-between bg-sky-950/30 border border-sky-500/30 rounded-xl p-3">
+                    <div>
+                        <span class="text-[10px] font-bold text-sky-300 uppercase tracking-wider block">Dni zamrożenia ucznia</span>
+                        <span class="text-sm font-black text-white" id="piotr-uczen-zamrozenia-ilosc">0 ❄️</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="zmienZamrozeniaUczniaPiotr(-1)" class="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-white/10 text-xs font-bold text-zinc-300">-1 ❄️</button>
+                        <button type="button" onclick="zmienZamrozeniaUczniaPiotr(1)" class="px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-xs font-bold text-sky-200">+1 ❄️</button>
+                    </div>
+                </div>
 
                 <div>
                     <span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5">Wybierz ikonę odznaki</span>
@@ -720,12 +782,12 @@
         </div>
     </div>
 
-    <!-- MODAL PROGÓW PŁOMYKA (TYLKO KOLORY I DNI) -->
+    <!-- MODAL PROGÓW PŁOMYKA + PRZYCISK ZAMRAŻANIA (WIDOCZNY DOPIERO PO KLIKNIĘCIU W PŁOMYCZEK) -->
     <div id="modal-poziomy-streaka" class="fixed inset-0 z-[990] modal-overlay hidden items-center justify-center p-4">
-        <div class="glass-panel p-6 sm:p-7 w-full max-w-md relative flex flex-col animate-scale-in">
+        <div class="glass-panel p-6 sm:p-7 w-full max-w-md relative flex flex-col animate-scale-in max-h-[90vh] overflow-y-auto no-scrollbar">
             <button onclick="zamknijModalPoziomowStreaka()" class="absolute top-3.5 right-4 text-zinc-400 hover:text-white text-2xl leading-none p-1">&times;</button>
             <span class="emblem emblem-amber mb-2 w-max">Seria dni</span>
-            <h3 class="text-lg font-bold text-white mb-4">Kolory płomyka</h3>
+            <h3 class="text-lg font-bold text-white mb-4">Kolory i Zamrożenie Płomyka</h3>
 
             <div class="flex flex-col gap-2 mb-5">
                 <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-zinc-900/60 border border-orange-500/25">
@@ -772,7 +834,21 @@
                 </div>
             </div>
 
-            <button type="button" onclick="zamknijModalPoziomowStreaka()" class="btn-classic-primary w-full py-3 rounded-xl font-bold text-xs">Zamknij</button>
+            <!-- SEKCJA I PRZYCISK ZAMRAŻANIA W MODALU PŁOMYKA -->
+            <div class="p-4 rounded-2xl bg-sky-950/35 border border-sky-400/30 mb-5 flex flex-col gap-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-extrabold text-sky-200 flex items-center gap-1.5">❄️ Zamrożenie Płomyka</span>
+                    <span id="modal-streak-liczba-zamrozen" class="emblem emblem-ice">Dostępne: 0 ❄️</span>
+                </div>
+                <p class="text-[11px] text-zinc-300 leading-relaxed">Co miesiąc otrzymujesz <b>+1 dzień zamrożenia</b> (niewykorzystane sumują się). Zamrożony płomyk robi się błękitny i trzęsie się z zimna, ale Twoja passa nie przepada!</p>
+                <button type="button" id="btn-zamroz-dzisiaj" onclick="zamknijModalPoziomowStreaka(); uzyjZamrozeniaStreaka()" class="w-full py-3 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-200 text-xs font-extrabold flex items-center justify-center gap-2 transition-all shadow-md">
+                    <span>❄️</span>
+                    <span id="start-tekst-zamroz">Zamroź dzisiejszy dzień</span>
+                    <span class="opacity-80 font-bold">(<span id="start-liczba-zamrozen">0</span>)</span>
+                </button>
+            </div>
+
+            <button type="button" onclick="zamknijModalPoziomowStreaka()" class="btn-classic-secondary w-full py-3 rounded-xl font-bold text-xs">Zamknij</button>
         </div>
     </div>
 
@@ -793,7 +869,7 @@
             <div class="grid grid-cols-2 gap-2.5 w-full mb-3">
                 <div class="bg-zinc-900/70 border border-white/5 rounded-xl p-3">
                     <span class="text-[10px] font-bold text-zinc-400 uppercase block">Seria dni</span>
-                    <span id="znajomy-modal-streak" class="text-lg font-black text-orange-400 mt-0.5 block">0</span>
+                    <span id="znajomy-modal-streak" class="text-lg font-black text-orange-400 mt-0.5 block">Brak</span>
                 </div>
                 <div class="bg-zinc-900/70 border border-white/5 rounded-xl p-3">
                     <span class="text-[10px] font-bold text-zinc-400 uppercase block">Dzisiaj w sali</span>
@@ -833,7 +909,6 @@
     
 
     <!-- EKRAN POWITANIA -->
-     
     <div id="ekran-powitania" class="hidden fixed inset-0 z-[100] bg-[#090d16] flex-col items-center justify-center transition-opacity duration-700"></div>
 
     <!-- EKRAN LOGOWANIA -->
@@ -888,7 +963,7 @@
     </div>
 
     <!-- GŁÓWNY EKRAN -->
-    <div id="ekran-glowny" class="hidden flex-col min-h-screen pb-12">
+    <div id="ekran-glowny" class="hidden flex-col min-h-screen pb-12 w-full max-w-full overflow-x-hidden">
         <nav class="glass-panel mx-2.5 sm:mx-4 mt-3 sm:mt-4 px-3.5 sm:px-6 py-3 sticky top-3 z-40 flex flex-col md:flex-row justify-between items-center gap-3 max-w-7xl xl:mx-auto w-auto">
             <div class="flex items-center justify-between w-full md:w-auto">
                 <div class="flex items-center gap-3">
@@ -964,7 +1039,7 @@
                             <span class="absolute -bottom-1 -right-1 w-6 h-6 rounded-lg bg-indigo-500 text-white flex items-center justify-center text-[11px] shadow-md border border-[#090d16] transition-transform duration-300 group-hover:scale-110">✎</span>
                         </div>
 
-                        <div>
+                        <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-2 mb-1.5 flex-wrap">
                                 <span id="badge-twoj-profil" onclick="otworzSekretnyPanelPiotra()" class="emblem emblem-indigo select-none">Twój Profil</span>
                                 <button type="button" id="btn-sekretny-piotra" onclick="otworzSekretnyPanelPiotra()" class="hidden w-5 h-5 rounded-full bg-white/5 hover:bg-white/15 text-zinc-500 hover:text-zinc-300 items-center justify-center text-[10px] transition-colors" title="Opcje">•••</button>
@@ -972,8 +1047,8 @@
                             <div class="flex items-center gap-3 flex-wrap">
                                 <h2 id="start-powitanie" class="text-2xl sm:text-3xl font-bold text-white tracking-tight">-</h2>
                                 
-                                <!-- PŁONĄCY PŁOMYK SVG (WZÓR DUOLINGO) -->
-                                <div id="start-streak-wrapper" onclick="otworzModalPoziomowStreaka()" class="flex items-center streak-active relative cursor-pointer group" title="Kliknij, aby zobaczyć kolory płomyka">
+                                <!-- PŁONĄCY PŁOMYK SVG (PO KLIKNIĘCIU OTWIERA KOLORY I ZAMRAŻANIE) -->
+                                <div id="start-streak-wrapper" onclick="otworzModalPoziomowStreaka()" class="hidden items-center streak-active relative cursor-pointer group" title="Kliknij, aby zobaczyć kolory i zamrożenia płomyka">
                                     <div class="streak-icon-wrapper z-10 transition-transform duration-300 group-hover:scale-110">
                                         <div class="streak-icon-bg">
                                             <svg class="flame-svg" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -982,14 +1057,11 @@
                                         </div>
                                         <div class="streak-icon-fg" id="start-streak-icon-fill">
                                             <svg class="flame-svg" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <!-- Kropka i zaokrąglony romb u góry -->
                                                 <circle class="duo-spark-dot" cx="48" cy="9" r="4.5"/>
                                                 <g class="duo-spark-diamond">
                                                     <rect x="28" y="16" width="14" height="14" rx="3.5" transform="rotate(45 35 23)"/>
                                                 </g>
-                                                <!-- Zewnętrzny kształt płomyka -->
                                                 <path class="duo-flame-body" d="M50 112 C29.5 112 17 98.5 17 78 L17 50 C17 42.5 25.5 39.5 30.8 45.2 L34.2 48.8 C34.8 49.4 35.8 49.2 36.3 48.4 L46 31.5 C49.8 25 58.2 25 62.5 31.5 C73.5 47.5 83 61.5 83 78 C83 98.5 70.5 112 50 112 Z"/>
-                                                <!-- Wewnętrzna łezka -->
                                                 <path class="duo-flame-teardrop" d="M50 97 C39.5 97 33 89.5 33 79.5 C33 72 39 64 46.8 56.5 C48.6 54.8 51.4 54.8 53.2 56.5 C61 64 67 72 67 79.5 C67 89.5 60.5 97 50 97 Z"/>
                                             </svg>
                                         </div>
@@ -1057,7 +1129,7 @@
                             <div class="flex justify-between items-center gap-4 bg-zinc-900/40 p-3.5 rounded-xl border border-white/5">
                                 <div>
                                     <h4 class="text-sm font-bold text-white">Ranking tygodniowy</h4>
-                                    <p class="text-[11px] text-zinc-400 mt-0.5">Uwzględniaj mój czas w Podium Tygodnia</p>
+                                    <p class="text-[11px] text-zinc-400 mt-0.5">Uwzględniaj mój czas w TOP 5 Podium Tygodnia</p>
                                 </div>
                                 <label class="toggle-switch-wrap shrink-0">
                                     <input type="checkbox" id="ustawienie-prywatnosc-ranking" onchange="zmienUstawienieRankingu(this.checked)" class="sr-only">
@@ -1148,13 +1220,13 @@
                 </div>
             </div>
 
-            <!-- PODIUM TYGODNIA (PEŁNA TABELA UCZNIÓW) -->
+            <!-- PODIUM TYGODNIA (TOP 5 + TWÓJ WYNIK NA DOLE) -->
             <div class="glass-panel p-5 sm:p-6">
                 <div class="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-white/10">
-                    <span class="emblem emblem-amber">Podium Tygodnia</span>
+                    <span class="emblem emblem-amber">Podium Tygodnia (TOP 5)</span>
                     <span class="text-[11px] font-semibold text-zinc-400">Od poniedziałku</span>
                 </div>
-                <div id="podium-tygodnia-render" class="flex flex-col gap-2 max-h-[360px] overflow-y-auto no-scrollbar"></div>
+                <div id="podium-tygodnia-render" class="flex flex-col gap-2"></div>
             </div>
 
             <!-- OTRZYMANE I WYSŁANE ZAPROSZENIA -->
