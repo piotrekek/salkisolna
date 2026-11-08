@@ -1095,10 +1095,52 @@ function aktualizujTogglyPush() {
     if (tR && zalogowanyUczen.ustawienia_prywatnosci) tR.checked = zalogowanyUczen.ustawienia_prywatnosci.pokazuj_w_rankingu === true;
 }
 
-window.zmienUstawieniePush = function(typ, wartosc) {
+async function synchronizujTokenFCM(wymusProsbe = false) {
+    if (!zalogowanyUid || !messaging) return null;
+    const maJakikolwiekPush = ustawieniaPush.ulubione || ustawieniaPush.ankiety || ustawieniaPush.propozycje;
+    if (!maJakikolwiekPush && !wymusProsbe) return null;
+
+    try {
+        if (!('Notification' in window)) return null;
+        let permission = Notification.permission;
+        if (permission === 'default' && wymusProsbe) {
+            permission = await Notification.requestPermission();
+        }
+        if (permission !== 'granted') return null;
+
+        const swReg = await navigator.serviceWorker.ready;
+        const token = await messaging.getToken({
+            vapidKey: VAPID_KEY,
+            serviceWorkerRegistration: swReg
+        });
+
+        if (token) {
+            await db.ref(`uczniowie/${zalogowanyUid}/fcm_token`).set(token);
+            // Zapisujemy również na liście tokenów (obsługa wielu urządzeń ucznia: telefon + komputer)
+            const tokenKey = token.slice(-24).replace(/[.#$[\]/]/g, '_');
+            await db.ref(`uczniowie/${zalogowanyUid}/fcm_tokens/${tokenKey}`).set({
+                token: token,
+                updated: Date.now()
+            });
+            return token;
+        }
+    } catch (err) {
+        console.warn("Błąd pobierania tokenu FCM:", err);
+    }
+    return null;
+}
+
+window.zmienUstawieniePush = async function(typ, wartosc) {
     if (!zalogowanyUid) return;
     ustawieniaPush[typ] = wartosc;
-    db.ref(`uczniowie/${zalogowanyUid}/powiadomienia/${typ}`).set(wartosc);
+    await db.ref(`uczniowie/${zalogowanyUid}/powiadomienia/${typ}`).set(wartosc);
+
+    if (wartosc === true) {
+        const token = await synchronizujTokenFCM(true);
+        if (!token && ('Notification' in window) && Notification.permission === 'denied') {
+            pokazAlert("Powiadomienia zablokowane", "Odblokuj powiadomienia dla tej strony w ustawieniach przeglądarki, aby otrzymywać alerty Push.");
+        }
+    }
 };
 
 window.zmienUstawienieRankingu = function(pokazujWRankingu) {
@@ -1424,6 +1466,7 @@ function renderujPodiumTygodnia() {
 }
 
 function uruchomWidokTablicy() {
+    synchronizujTokenFCM(false);
     window.scrollTo(0, 0); 
     try {
         aktualizujTogglyPush();
