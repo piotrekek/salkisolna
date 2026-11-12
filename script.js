@@ -103,6 +103,40 @@ let ostatniNadawcaZaczepkiUid = null;
 let ostatniNadawcaZaczepkiImie = '';
 let trwaAnimacjaZaczepki = false;
 
+function czyKontoToPracownik(u) {
+    if (!u) return false;
+    const rola = String(u.rola || '').toLowerCase().trim();
+    const klasa = String(u.klasa || '').toLowerCase().trim();
+    return ['nauczyciel', 'pracownik', 'administracja', 'obsluga'].includes(rola) ||
+           klasa.includes('nauczyciel') || klasa.includes('pracownik') || klasa.includes('obsług') || klasa.includes('obslug');
+}
+
+function zastosujOgraniczeniaKonta() {
+    const isPracownik = czyKontoToPracownik(zalogowanyUczen);
+    const ukryteZakladki = ['tab-uczen-znajomi', 'tab-uczen-glosowania', 'tab-uczen-propozycje', 'tab-uczen-panel-samorzadu'];
+    
+    ukryteZakladki.forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        if (isPracownik) {
+            btn.classList.add('hidden');
+            btn.style.setProperty('display', 'none', 'important');
+        } else if (id !== 'tab-uczen-panel-samorzadu') {
+            btn.classList.remove('hidden');
+            btn.style.removeProperty('display');
+        }
+    });
+
+    if (isPracownik && zalogowanyUid) {
+        ustawieniaPush = { ulubione: false, ankiety: false, propozycje: false };
+        zalogowanyUczen.ustawienia_prywatnosci = { pokazuj_sale: false, pokazuj_w_rankingu: false };
+        db.ref('uczniowie/' + zalogowanyUid).update({
+            powiadomienia: { ulubione: false, ankiety: false, propozycje: false, sale: false },
+            ustawienia_prywatnosci: { pokazuj_sale: false, pokazuj_w_rankingu: false }
+        }).catch(() => {});
+    }
+}
+
 window.pokazAlert = function(tytul, tresc) {
     document.getElementById('custom-alert-title').innerText = tytul;
     document.getElementById('custom-alert-text').innerText = tresc;
@@ -195,7 +229,6 @@ function biezacyMiesiacString() {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); 
 }
 
-// Funkcja obliczająca pominięte dni robocze z uwzględnieniem zamrożonych dni szkoły oraz prywatnych zamrożeń ucznia
 function dniRoboczePomiedzy(d1, d2, uzytkownikData = null) {
     let dni = 0;
     let obecna = new Date(d1.getTime());
@@ -246,7 +279,6 @@ function obliczPozostalyCzasZaczepki(uid) {
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-// Zawsze zwraca pełne imię i pierwszą literę nazwiska (np. "Aleksandra K.")
 function sformatujImieINazwiskoKropka(imieNazwisko) {
     const czesci = (imieNazwisko || 'Uczeń').trim().split(/\s+/).filter(Boolean);
     const imie = czesci[0] || 'Uczeń';
@@ -254,7 +286,6 @@ function sformatujImieINazwiskoKropka(imieNazwisko) {
     return nazwisko ? `${imie} ${nazwisko.charAt(0).toUpperCase()}.` : imie;
 }
 
-// --- LOGIKA POZIOMÓW PŁOMYKA (WZÓR DUOLINGO: 50, 100, 200, 300, 350-365) ---
 function pobierzPoziomStreaka(dni, wymuszonyProg = null, czyZamrozony = false) {
     if (czyZamrozony) {
         return { klasa: 'streak-frozen', nazwa: 'Zamrożony', textClass: 'text-sky-300', outer: '#0ea5e9', core: '#e0f2fe' };
@@ -283,9 +314,8 @@ function generujMiniPlomykSvg(streakCount, isInactive, wymuszonyProg = null, czy
     </svg>`;
 }
 
-// --- MIESIĘCZNE DOŁADOWANIE ZAMROŻEŃ (+1 CO MIESIĄC, SUMUJĄ SIĘ) ---
 function sprawdzMiesiecznyBonusZamrozenia(uid, daneUcznia) {
-    if (!uid || !daneUcznia) return;
+    if (!uid || !daneUcznia || czyKontoToPracownik(daneUcznia)) return;
     const obecnyMies = biezacyMiesiacString();
     const ostMies = daneUcznia.ostatni_miesiac_zamrozenia || '';
     let obecnaLiczba = (daneUcznia.zamrozenia_liczba !== undefined && daneUcznia.zamrozenia_liczba !== null)
@@ -303,7 +333,6 @@ function sprawdzMiesiecznyBonusZamrozenia(uid, daneUcznia) {
     }
 }
 
-// --- UŻYCIE ZAMROŻENIA PRZEZ UCZNIA ---
 window.uzyjZamrozeniaStreaka = function() {
     if (!zalogowanyUid || !zalogowanyUczen) return;
     const dzisStr = formatujDateYMD(new Date());
@@ -347,7 +376,6 @@ window.uzyjZamrozeniaStreaka = function() {
     );
 };
 
-// --- PEŁNOEKRANOWA CELEBRACJA PO ĆWICZENIU ---
 window.pokazCelebracjeStreaka = function(streakVal, wymusTest = false) {
     const modal = document.getElementById('modal-celebracja-streaka');
     if (!modal) return;
@@ -392,7 +420,7 @@ window.zamknijCelebracjeStreaka = function() {
 };
 
 function sprawdzCzyPokazacCelebracjePoWejsciu() {
-    if (!zalogowanyUid || !zalogowanyUczen) return;
+    if (!zalogowanyUid || !zalogowanyUczen || czyKontoToPracownik(zalogowanyUczen)) return;
     const dzisStr = formatujDateYMD(new Date());
     const streakCount = Number(zalogowanyUczen.streak) || 0;
 
@@ -407,7 +435,6 @@ function sprawdzCzyPokazacCelebracjePoWejsciu() {
     }
 }
 
-// --- SYSTEM ODZNAK I PANEL PIOTRA ---
 function pobierzTabliceOdznak(uzytkownikData) {
     if (!uzytkownikData || !uzytkownikData.odznaki) return [];
     if (Array.isArray(uzytkownikData.odznaki)) return uzytkownikData.odznaki.filter(Boolean);
@@ -633,7 +660,6 @@ window.otworzModalPoziomowStreaka = function() {
 };
 window.zamknijModalPoziomowStreaka = function() { ukryjEkran('modal-poziomy-streaka'); };
 
-// --- SYSTEM AWATARÓW ---
 function pobierzInicjaly(imieNazwisko) {
     const cz = (imieNazwisko || 'Uczeń').trim().split(/\s+/);
     return (cz[0].charAt(0) + (cz[1] ? cz[1].charAt(0) : '')).toUpperCase();
@@ -839,8 +865,6 @@ window.zatwierdzDobrowolnaZmianeHasla = async function() {
         pokazAlert("Hasło zmienione", "Twoje nowe hasło zostało bezpiecznie zapisane.");
     }).catch(err => pokazAlert("Błąd bazy", err.message));
 };
-
-// --- LOGIKA STREAKA, ZAMROŻENIA I UKRYWANIA PRZY 0 ---
 let streakAnimateTimeout = null;
 let streakAnimateInterval = null;
 
@@ -864,7 +888,6 @@ function animujStreakWProfilu(streakCount, isSzary, czyZamrozonyDzis = false) {
 
     const maWymuszonyKolor = zalogowanyUczen && zalogowanyUczen.wymuszony_kolor_streaka !== undefined && zalogowanyUczen.wymuszony_kolor_streaka !== null;
 
-    // JEŻELI NIE MA PASSY (0 DNI) -> NIE POKAZUJEMY PŁOMYCZKA ANI CYFERKI
     if (streakCount <= 0 && !maWymuszonyKolor) {
         ukryjEkran('start-streak-wrapper');
         return;
@@ -927,6 +950,19 @@ function animujStreakWProfilu(streakCount, isSzary, czyZamrozonyDzis = false) {
 function przeliczStatusStreaka() {
     if (!zalogowanyUczen) return;
 
+    if (czyKontoToPracownik(zalogowanyUczen)) {
+        ukryjEkran('start-streak-wrapper');
+        ukryjEkran('modal-celebracja-streaka');
+        const panelOdnowy = document.getElementById('panel-odnowy-streaka');
+        if (panelOdnowy) panelOdnowy.classList.add('hidden');
+        if (Number(zalogowanyUczen.streak) > 0 || Number(zalogowanyUczen.dzisiejsze_minuty) > 0) {
+            zalogowanyUczen.streak = 0;
+            zalogowanyUczen.dzisiejsze_minuty = 0;
+            db.ref('uczniowie/' + zalogowanyUid).update({ streak: 0, dzisiejsze_minuty: 0, ostatnia_aktywnosc: null });
+        }
+        return;
+    }
+
     const btnSekretny = document.getElementById('btn-sekretny-piotra');
     const badgeProfil = document.getElementById('badge-twoj-profil');
     if (zalogowanyUczen.imie_nazwisko && zalogowanyUczen.imie_nazwisko.includes('Piotr Nowik')) {
@@ -945,7 +981,9 @@ function przeliczStatusStreaka() {
     
     const ostAktywnoscStr = zalogowanyUczen.ostatnia_aktywnosc;
     let streakCount = Number(zalogowanyUczen.streak) || 0;
-    let minutyDzis = (ostAktywnoscStr === dzisStr) ? (Number(zalogowanyUczen.dzisiejsze_minuty) || 0) : 0;
+    
+    const czyMinutyZDzis = (ostAktywnoscStr === dzisStr || zalogowanyUczen.data_dzisiejszych_minut === dzisStr);
+    let minutyDzis = czyMinutyZDzis ? (Number(zalogowanyUczen.dzisiejsze_minuty) || 0) : 0;
     let pominieteDni = 0;
     
     if (ostAktywnoscStr) {
@@ -970,7 +1008,6 @@ function przeliczStatusStreaka() {
     const czyZamrozonyDzis = !cwiczylDzis && czyDzienJestZamrozonyDlaUcznia(dzisStr, zalogowanyUczen);
     const isSzary = pominieteDni > 0 && !czyZamrozonyDzis;
 
-    // Aktualizacja przycisku zamrożenia w profilu
     const elLiczbaZamrozen = document.getElementById('start-liczba-zamrozen');
     const elTekstZamroz = document.getElementById('start-tekst-zamroz');
     if (elLiczbaZamrozen) elLiczbaZamrozen.innerText = Number(zalogowanyUczen.zamrozenia_liczba) || 0;
@@ -1024,6 +1061,7 @@ window.odzyskajStreak = function() {
 };
 
 window.przelaczZakladkeUcznia = function(nazwa) {
+    if (czyKontoToPracownik(zalogowanyUczen) && nazwa !== 'start' && nazwa !== 'salki') return;
     if (nazwa === aktywnaZakladkaId || isTabAnimating) return;
 
     const oldIdx = tabOrderUcznia.indexOf(aktywnaZakladkaId);
@@ -1072,29 +1110,6 @@ window.przelaczZakladkeUcznia = function(nazwa) {
     }, 280); 
 };
 
-function sprawdzUprawnieniaSamorzadu() {
-    if (zalogowanyUczen && zalogowanyUczen.rola === 'samorzad') {
-        const btn = document.getElementById('tab-uczen-panel-samorzadu');
-        if (btn) {
-            btn.classList.remove('hidden');
-            btn.style.setProperty('display', 'inline-flex', 'important'); 
-        }
-    }
-}
-
-function aktualizujTogglyPush() {
-    const tU = document.getElementById('push-ulubione');
-    const tA = document.getElementById('push-ankiety');
-    const tP = document.getElementById('push-propozycje');
-    const tS = document.getElementById('ustawienie-prywatnosc-sala');
-    const tR = document.getElementById('ustawienie-prywatnosc-ranking');
-    if (tU) tU.checked = ustawieniaPush.ulubione === true;
-    if (tA) tA.checked = ustawieniaPush.ankiety === true;
-    if (tP) tP.checked = ustawieniaPush.propozycje === true;
-    if (tS && zalogowanyUczen.ustawienia_prywatnosci) tS.checked = zalogowanyUczen.ustawienia_prywatnosci.pokazuj_sale !== false;
-    if (tR && zalogowanyUczen.ustawienia_prywatnosci) tR.checked = zalogowanyUczen.ustawienia_prywatnosci.pokazuj_w_rankingu === true;
-}
-
 async function synchronizujTokenFCM(wymusProsbe = false) {
     if (!zalogowanyUid || !messaging) return null;
     const maJakikolwiekPush = ustawieniaPush.ulubione || ustawieniaPush.ankiety || ustawieniaPush.propozycje;
@@ -1116,7 +1131,6 @@ async function synchronizujTokenFCM(wymusProsbe = false) {
 
         if (token) {
             await db.ref(`uczniowie/${zalogowanyUid}/fcm_token`).set(token);
-            // Zapisujemy również na liście tokenów (obsługa wielu urządzeń ucznia: telefon + komputer)
             const tokenKey = token.slice(-24).replace(/[.#$[\]/]/g, '_');
             await db.ref(`uczniowie/${zalogowanyUid}/fcm_tokens/${tokenKey}`).set({
                 token: token,
@@ -1129,28 +1143,6 @@ async function synchronizujTokenFCM(wymusProsbe = false) {
     }
     return null;
 }
-
-window.zmienUstawieniePush = async function(typ, wartosc) {
-    if (!zalogowanyUid) return;
-    ustawieniaPush[typ] = wartosc;
-    await db.ref(`uczniowie/${zalogowanyUid}/powiadomienia/${typ}`).set(wartosc);
-
-    if (wartosc === true) {
-        const token = await synchronizujTokenFCM(true);
-        if (!token && ('Notification' in window) && Notification.permission === 'denied') {
-            pokazAlert("Powiadomienia zablokowane", "Odblokuj powiadomienia dla tej strony w ustawieniach przeglądarki, aby otrzymywać alerty Push.");
-        }
-    }
-};
-
-window.zmienUstawienieRankingu = function(pokazujWRankingu) {
-    if (!zalogowanyUid) return;
-    if (!zalogowanyUczen.ustawienia_prywatnosci) zalogowanyUczen.ustawienia_prywatnosci = {};
-    zalogowanyUczen.ustawienia_prywatnosci.pokazuj_w_rankingu = pokazujWRankingu;
-    db.ref('uczniowie/' + zalogowanyUid + '/ustawienia_prywatnosci/pokazuj_w_rankingu').set(pokazujWRankingu).then(() => {
-        renderujPodiumTygodnia();
-    }).catch(e => pokazAlert("Błąd", e.message));
-};
 
 function uruchomAnimacjePowitania(daneUcznia, callback) {
     const ep = document.getElementById('ekran-powitania');
@@ -1323,7 +1315,6 @@ function odswiezDaneProfiluUI() {
     } catch (e) { console.error("Błąd odświeżania profilu: ", e); }
 }
 
-// --- PODIUM TYGODNIA (TOP 5 + TWÓJ WYNIK NA DOLE NAWET GDY ODZNACZONE) ---
 function pobierzPoniedzialekTygodniaStr() {
     const teraz = new Date();
     const dzien = teraz.getDay();
@@ -1437,7 +1428,6 @@ function renderujPodiumTygodnia() {
         return (Number(b.u.streak) || 0) - (Number(a.u.streak) || 0);
     });
 
-    // Tylko TOP 5 osób na głównym podium
     const top5 = kandydaci.slice(0, 5);
     const czyJestemWTop5 = top5.some(k => k.uid === zalogowanyUid);
     const mojIndexWKandydatach = kandydaci.findIndex(k => k.uid === zalogowanyUid);
@@ -1450,7 +1440,6 @@ function renderujPodiumTygodnia() {
         html += top5.map((item, idx) => wyrenderujWierszPodiumHtml(item, idx + 1, false)).join('');
     }
 
-    // Jeśli nie ma nas w TOP 5 (bo mamy za mało minut lub wyłączoną zgodę na ranking) -> zawsze pokazujemy nasz wynik na samym dole
     if (!czyJestemWTop5 && zalogowanyUczen) {
         const mojeMinuty = pobierzMinutyTygodnioweUcznia(zalogowanyUczen);
         const mojObiekt = { uid: zalogowanyUid, u: zalogowanyUczen, minuty: mojeMinuty };
@@ -1469,6 +1458,7 @@ function uruchomWidokTablicy() {
     synchronizujTokenFCM(false);
     window.scrollTo(0, 0); 
     try {
+        zastosujOgraniczeniaKonta();
         aktualizujTogglyPush();
         odswiezDaneProfiluUI(); 
         generujTabliceKlasyczna(); 
@@ -1535,13 +1525,6 @@ function uruchomWidokTablicy() {
     aktywnaZakladkaId = 'start';
     pokazEkran('ekran-glowny', 'flex');
 }
-
-window.zmienUstawieniePrywatnosci = function(pokazujSale) {
-    if (!zalogowanyUid) return;
-    if (!zalogowanyUczen.ustawienia_prywatnosci) zalogowanyUczen.ustawienia_prywatnosci = {};
-    zalogowanyUczen.ustawienia_prywatnosci.pokazuj_sale = pokazujSale;
-    db.ref('uczniowie/' + zalogowanyUid + '/ustawienia_prywatnosci/pokazuj_sale').set(pokazujSale).catch(e => pokazAlert("Błąd", e.message));
-};
 
 window.formatujInputKodu = function(el) {
     let val = el.value.replace(/\D/g, '');
@@ -1654,7 +1637,6 @@ window.zmienSortowanieZnajomych = function(tryb) {
     renderujZnajomych();
 };
 
-// --- WIZYTÓWKA ZNAJOMEGO (SAMA CYFRA LUB "BRAK", ODZNAKI + POJEDYNEK 1V1) ---
 window.otworzProfilZnajomego = function(uid) {
     const u = pelnaBazaUczniow[uid];
     if (!u) return;
@@ -1684,7 +1666,7 @@ window.otworzProfilZnajomego = function(uid) {
     const dzis = new Date();
     dzis.setHours(0,0,0,0);
     const dzisStr = formatujDateYMD(dzis);
-    const znStreak = Number(u.streak) || 0;
+    const znStreak = czyKontoToPracownik(u) ? 0 : (Number(u.streak) || 0);
     const dzisMin = (u.ostatnia_aktywnosc === dzisStr) ? (Number(u.dzisiejsze_minuty) || 0) : 0;
     const czyZamrozonyZn = (u.ostatnia_aktywnosc !== dzisStr) && czyDzienJestZamrozonyDlaUcznia(dzisStr, u);
 
@@ -1732,7 +1714,6 @@ window.otworzProfilZnajomego = function(uid) {
 
 window.zamknijProfilZnajomego = function() { ukryjEkran('modal-profil-znajomego'); };
 
-// --- SYSTEM ZACZEPEK ---
 function odtworzAnimacjeZaczepkiNaKafelku(uid, opcja, tryb) {
     const tile = document.getElementById('friend-tile-' + uid);
     const avatar = document.getElementById('friend-avatar-' + uid);
@@ -1985,7 +1966,7 @@ function renderujZnajomych() {
             }
         }
         
-        let znStreak = Number(daneUcznia.streak) || 0;
+        let znStreak = czyKontoToPracownik(daneUcznia) ? 0 : (Number(daneUcznia.streak) || 0);
         const cwiczylDzisiaj = (daneUcznia.ostatnia_aktywnosc === dzisStr);
         let dzisMinuty = cwiczylDzisiaj ? (Number(daneUcznia.dzisiejsze_minuty) || 0) : 0;
         let pominiete = 0;
@@ -2004,7 +1985,6 @@ function renderujZnajomych() {
 
         const czesciImienia = (daneUcznia.imie_nazwisko || 'Uczeń').split(' ');
         const sameImie = czesciImienia[0];
-        // ZAWSZE Imię i 1 litera nazwiska (np. "Aleksandra K.")
         const imieNazwiskoKropka = sformatujImieINazwiskoKropka(daneUcznia.imie_nazwisko);
         const instr = daneUcznia.instrument || '';
         const pozostalyCzas = obliczPozostalyCzasZaczepki(uId);
@@ -2065,7 +2045,6 @@ function renderujZnajomych() {
         const tierInfo = pobierzPoziomStreaka(item.znStreak, wymuszonyKolor, item.czyZamrozonyDzis);
         const kolorLiczby = isInactive ? 'text-zinc-500' : tierInfo.textClass;
 
-        // Gdy znStreak === 0 -> NIE POKAZUJEMY PŁOMYCZKA ANI CYFERKI
         const streakWizualny = (item.znStreak > 0 || (wymuszonyKolor !== null && wymuszonyKolor !== undefined))
             ? `<span class="inline-flex items-center gap-1 font-bold text-xs ${kolorLiczby} shrink-0">${generujMiniPlomykSvg(item.znStreak, isInactive, wymuszonyKolor, item.czyZamrozonyDzis)} ${item.znStreak}${item.czyZamrozonyDzis ? ' ❄️' : ''}</span>`
             : '';
@@ -2131,6 +2110,10 @@ function renderujWidokStart() {
         elWolne.innerText = wCount;
     }
     if (!kon) return;
+    if (czyKontoToPracownik(zalogowanyUczen)) {
+        kon.innerHTML = '<div class="text-xs text-zinc-500 py-4 text-center">Konto pracownika szkoły — podgląd stanu sal.</div>';
+        return;
+    }
 
     const lastAnkiety = localStorage.getItem('posm_last_seen_ankiety') || "2000-01-01 00:00";
     const lastPropozycje = localStorage.getItem('posm_last_seen_propozycje') || "2000-01-01 00:00";
@@ -2342,7 +2325,6 @@ function renderujPropozycjeUcznia() {
     }).join('');
 }
 
-// --- TABLICA SAL Z AWATARAMI ZNAJOMYCH ---
 function znajdzZnajomegoWSali(nr) {
     const dane = pelneDaneSal[nr];
     if (!dane || typeof dane !== 'object' || dane.status !== 'ZAJĘTA' || !dane.kto) return null;
@@ -2545,9 +2527,6 @@ window.wyslijZgloszenieUsterki = function() {
 };
 window.zamknijModalSali = () => { ukryjEkran('modal-sala-uczen'); };
 
-// ==========================================
-// SOLNA WRAPPED (WARIANT B: KOŁO FORTUNY + PLAKATY BEZ CZARNEGO EKRANU)
-// ==========================================
 window.uruchomWrapped = async function(miesiac, btnEl) {
     if(btnEl) btnEl.style.opacity = '0.5';
     wstrzyknijStyleWrapped();
@@ -3342,9 +3321,6 @@ window.udostepnijIG = async function() {
     }
 };
 
-// ==========================================
-// ZARZĄDZANIE SAMORZĄDU + PODGLĄD GŁOSÓW
-// ==========================================
 function pobierzNazweUczniaPoUid(uid) {
     const u = pelnaBazaUczniow[uid];
     if (u && u.imie_nazwisko) return `${u.imie_nazwisko} (${u.klasa || '-'})`;
